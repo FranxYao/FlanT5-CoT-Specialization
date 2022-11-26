@@ -1,5 +1,6 @@
 .ipynb_checkpoints
 outputs
 .DS_Store
-data/*
+data
 __pycache__/
+logs
