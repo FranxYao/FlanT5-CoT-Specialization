@@ -30,6 +30,10 @@ def define_argument():
     parser.add_argument("--debug", default=0, type=int)
     parser.add_argument("--batch_size", default=10, type=int) 
     parser.add_argument("--log_interval", default=10, type=int)
+    parser.add_argument("--num_epoch", default=10, type=int)
+    parser.add_argument("--lr", default=1e-5, type=float)
+    parser.add_argument("--base_model", default='google/flan-t5-xxl', type=str,
+        help="")
     parser.add_argument("--data_mode", default='')
     parser.add_argument("--tune_mode", default="match_generation", type=str, 
         help="match_generation, match_distribution, contrastive")

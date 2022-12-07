@@ -4,3 +4,5 @@ outputs
 data
 __pycache__/
 logs
+*.json
+*.pkl
