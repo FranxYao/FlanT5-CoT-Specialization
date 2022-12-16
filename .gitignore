@@ -6,3 +6,5 @@ __pycache__/
 logs
 *.json
 *.pkl
+processed_data
+checkpoints/

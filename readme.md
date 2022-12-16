@@ -16,4 +16,3 @@ Scripts
 Distillation 
 * `train_distill_t5.py`: train the distillation algorithm 
 * `trainer_distill.py`: trainer for emergent ability distillation 
-
