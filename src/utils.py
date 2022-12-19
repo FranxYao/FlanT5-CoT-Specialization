@@ -530,3 +530,10 @@ def kl_divergence(p0, p1, eps=1e-10):
     kld = p0 * torch.log(p0 / (p1 + eps) + eps)
     kld = kld.sum(dim=-1)
     return kld
+
+
+def get_optimizer(optimizer_name, model):
+    """Get optimizer, currently supporting AdamW and AdaFactor
+    """
+    # TBC
+    return 

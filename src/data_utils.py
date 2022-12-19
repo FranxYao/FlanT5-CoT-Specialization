@@ -183,7 +183,8 @@ class GSM8KCodexAugmentedDataset(object):
 
         Args:
             batch_size (int): batch size
-            target_answer_label (int, optional): 1 for correct answer, 0 for incorrect answer, 2 for no filter. Defaults to 1.
+            target_answer_label (int, optional): whether only using correct answer or using all answers
+                1 for correct answer, 0 for incorrect answer, 2 for no filter. Defaults to 1.
         """
         def _compare_label(target_answer_label, l):
             if(target_answer_label == 2): return True 
@@ -213,3 +214,32 @@ class GSM8KCodexAugmentedDataset(object):
                 batches.append(batch)
         return batches 
 
+
+class GSM8KCodexAugmentedInContextDataset(object):
+
+    def __init__(self):
+        self.gsm8k_train = ... 
+        self.questions = ... 
+        self.answers = ... 
+        self.codex_predictions = ...
+        self.prediction_labels = ... 
+        return 
+
+    def process_batch(self):
+        return 
+
+    def get_train_batches(self):
+        # Attention: add the start token to the input -- previously it is not added
+
+        # Step 1. Build zero-shot answer-only batches 
+        # Add prefix "Q: " and "A: "
+
+        # Step 2. Build in-context answer-only batches
+        # sample 4 in-context demonstrations from the GSM8K training set
+
+        # Step 3. Build zero-shot chain-of-thought batches 
+
+        # Step 4. Build in-context chain-of-thought batches
+
+        # Step 5. Mix all batches together
+        return 

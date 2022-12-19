@@ -29,7 +29,7 @@ import torch.nn.functional as F
 # from torch import Dataset, DataLoader
 from tqdm import tqdm
 from datasets import load_dataset
-from transformers import T5Tokenizer, T5ForConditionalGeneration, get_cosine_schedule_with_warmup
+from transformers import T5Tokenizer, T5ForConditionalGeneration, get_cosine_schedule_with_warmup, AdaFactor
 
 from src.utils import tprint, kl_divergence
 from src.data_utils import GSM8KCodexAugmentedDataset
@@ -54,7 +54,7 @@ def define_argument():
     parser.add_argument("--save_path", default='checkpoints/', type=str) 
     parser.add_argument("--lr", default=1e-5, type=float)
     parser.add_argument("--base_model", default='google/flan-t5-xxl', type=str,
-        help="") # TODO: add OPT 66B
+        help="[google/flan-t5-xxl, google/flan-t5-xl], xxl for 11B, xl for 3B, TODO: OPT 66B") 
     parser.add_argument("--data_mode", default='')
     parser.add_argument("--tune_mode", default="match_generation", type=str, 
         help="match_generation, match_distribution, contrastive")
@@ -82,7 +82,7 @@ def save(model, save_path):
     torch.save(model.state_dict(), save_path)
     return 
 
-def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler):
+def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler=None):
 
     global_step = 0
     smoothed_loss = 0.
@@ -110,7 +110,7 @@ def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler):
             if ((i + 1) % args.grad_accum_steps == 0) or (i + 1 == len(train_batches)):
                 optimizer.step()
                 optimizer.zero_grad()
-                scheduler.step() 
+                if(scheduler is not None): scheduler.step() 
                 global_step += 1
                 smoothed_loss = smoothed_loss / args.grad_accum_steps
                 if global_step % args.log_interval == 0:
