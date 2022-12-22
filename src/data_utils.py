@@ -3,7 +3,12 @@
 import torch
 import time
 import pickle
+import re 
 
+import numpy as np 
+
+from tqdm import tqdm
+from datasets import load_dataset
 from .utils import tprint
 
 CODEX_QUESTIONS_IDX_PATH = 'processed_data/codex_questions_idx.pkl'
@@ -12,6 +17,15 @@ CODEX_PER_STEP_PROBS_IDX_PATH = 'processed_data/codex_per_step_probs_idx.pkl'
 CODEX_PREDICTION_LABELS_PATH = 'processed_data/codex_prediction_labels.pkl'
 CODEX_MASK_AFTER_TRANSFORM_PATH = 'processed_data/codex_mask_after_transform.pkl'
 PERMUTED_IDX_PATH = 'processed_data/permuted_idx.pkl'
+
+CODEX_QUESTIONS_PATH = 'processed_data/codex_questions.pkl'
+CODEX_PREDICTIONS_PATH = 'processed_data/codex_predictions.pkl'
+
+ZERO_SHOT_ANSWER_ONLY_PATH = 'processed_data/zero_shot_answer_only.pkl'
+ZERO_SHOT_CHAIN_OF_THOUGHT_PATH = 'processed_data/zero_shot_chain_of_thought.pkl'
+IN_CONTEXT_ANSWER_ONLY_PATH = 'processed_data/in_context_answer_only.pkl'
+IN_CONTEXT_CHAIN_OF_THOUGHT_PATH = 'processed_data/in_context_chain_of_thought.pkl'
+
 
 class GSM8KCodexAugmentedDataset(object):
     """GSM8K dataset with Codex augmented data
@@ -140,7 +154,7 @@ class GSM8KCodexAugmentedDataset(object):
                 tgt_target_i.append(list(pad_array))
         assert(len(tgt_mask[0]) == len(tgt_input_ids[0]) == len(tgt_targets[0]))
 
-        # NOTE: T5 implementation automatically shifts the tgt_input_ids to the right by 1
+        # TODO: shift the tgt_input_ids by 1 
         out_dict = {"src_input_ids": torch.tensor(src_input_ids),
                     "tgt_input_ids": torch.tensor(tgt_input_ids), # inside transformer, there will be a start_token added to the input
                     "tgt_targets": torch.tensor(tgt_targets),
@@ -214,32 +228,192 @@ class GSM8KCodexAugmentedDataset(object):
                 batches.append(batch)
         return batches 
 
+def get_question_or_cot(q):
+    return ''.join(q.split(': ')[1:]).strip()
+
+def get_answer_only(a):
+    # print(a)
+    a = a.split(': ')[1].strip()
+    if('The answer is' in a):
+        a = 'The answer is' + a.split('The answer is')[1]
+        return a
+    else:
+        return None
+
+def sample_in_context_example(gsm8k_train, num_in_context_sample, is_cot):
+    sampled_idx = np.random.choice(len(gsm8k_train), num_in_context_sample, replace=False)
+    src_prefix = "Q: "
+    if(is_cot):
+        prompt = ''
+        for idx in sampled_idx:
+            idx = int(idx)
+            prompt += src_prefix + gsm8k_train[idx]['question']
+            prompt += "\nLet's think step by step\n"
+            pattern = '<<.*?>>'
+            ans = re.sub(pattern, '', gsm8k_train[idx]['answer'].split('####')[0])
+            ans += 'The answer is ' + gsm8k_train[idx]['answer'].split('####')[1].strip()
+            prompt += ans + '\n\n'
+    else: 
+        prompt = ''
+        for idx in sampled_idx:
+            idx = int(idx)
+            prompt += src_prefix + gsm8k_train[idx]['question']
+            prompt += "\nA: The answer is " + gsm8k_train[idx]['answer'].split('####')[1].strip() + '\n\n'
+    return prompt
+
 
 class GSM8KCodexAugmentedInContextDataset(object):
 
-    def __init__(self):
-        self.gsm8k_train = ... 
-        self.questions = ... 
-        self.answers = ... 
-        self.codex_predictions = ...
-        self.prediction_labels = ... 
+    def __init__(self, 
+                 batch_sizes,     
+                 data_formats,
+                 base_path=''
+                 ):
+        self.gsm8k_train = load_dataset('gsm8k', 'main')['train']
+        self.batch_sizes = batch_sizes
+        self.data_formats = data_formats
+
+        # load processed data 
+        self.zero_shot_answer_only = pickle.load(open(base_path + ZERO_SHOT_ANSWER_ONLY_PATH, 'rb'))
+        self.zero_shot_chain_of_thought = pickle.load(open(base_path + ZERO_SHOT_CHAIN_OF_THOUGHT_PATH, 'rb'))
+        self.in_context_answer_only = pickle.load(open(base_path + IN_CONTEXT_ANSWER_ONLY_PATH, 'rb'))
+        self.in_context_chain_of_thought = pickle.load(open(base_path + IN_CONTEXT_CHAIN_OF_THOUGHT_PATH, 'rb'))
         return 
 
-    def process_batch(self):
-        return 
+    def process_batch(self, tokenizer, batch):
+        """Use tokenizer to process batch"""
+        questions = list(b['question'] for b in batch)
+        answers = list(b['answer'] for b in batch)
+        questions = tokenizer(questions, padding=True, return_tensors='pt')
+        answers = tokenizer(answers, padding=True, return_tensors='pt')
+
+        # answer_ids = answers['input_ids'].masked_fill(1 - answers['attention_mask'], -100)
+        targets = answers['input_ids']
+        answer_ids = answers['input_ids']
+        batch_size = answer_ids.size(0)
+        bos = torch.tensor([tokenizer.decoder_start_token_id] * batch_size).view(batch_size, 1)
+        answer_ids = torch.cat([bos, answer_ids[:, :-1]], dim=1)
+        
+        batch = {'questions': questions['input_ids'],
+                 'question_mask': questions['attention_mask'],    
+                 'answers': answer_ids,
+                 'answer_mask': answers['attention_mask'],
+                 'targets': targets
+                 }
+        return batch
 
     def get_train_batches(self):
-        # Attention: add the start token to the input -- previously it is not added
+        """Given batch size, build batches for each data format, then mix them together"""
+
+        all_batches = []
+        if('zero_shot_answer_only' in self.data_formats):
+            zero_shot_answer_only_batches = []
+            batch_size = self.batch_sizes['zero_shot_answer_only']
+            for idx in range(0, len(self.zero_shot_answer_only), batch_size):
+                zero_shot_answer_only_batches.append(self.zero_shot_answer_only[idx : idx + batch_size])
+            all_batches.append(zero_shot_answer_only_batches)
+
+        if('zero_shot_chain_of_thought' in self.data_formats):
+            zero_shot_chain_of_thought_batches = []
+            batch_size = self.batch_sizes['zero_shot_chain_of_thought']
+            for idx in range(0, len(self.zero_shot_chain_of_thought), batch_size):
+                zero_shot_chain_of_thought_batches.append(self.zero_shot_chain_of_thought[idx : idx + batch_size])
+            all_batches.extend(zero_shot_chain_of_thought_batches)
+
+        if('in_context_answer_only' in self.data_formats):
+            in_context_answer_only_batches = []
+            batch_size = self.batch_sizes['in_context_answer_only']
+            for idx in range(0, len(self.in_context_answer_only), batch_size):
+                in_context_answer_only_batches.append(self.in_context_answer_only[idx : idx + batch_size])
+            all_batches.extend(in_context_answer_only_batches)
+        
+        if('in_context_chain_of_thought' in self.data_formats):
+            in_context_chain_of_thought_batches = []
+            batch_size = self.batch_sizes['in_context_chain_of_thought']
+            for idx in range(0, len(self.in_context_chain_of_thought), batch_size):
+                in_context_chain_of_thought_batches.append(self.in_context_chain_of_thought[idx : idx + batch_size])
+            all_batches.extend(in_context_chain_of_thought_batches)
+
+        # shuffle batches
+        np.random.seed(0)
+        np.random.shuffle(all_batches)
+
+        # import ipdb; ipdb.set_trace()
+        return all_batches
+
+    def process_data_format(self, 
+                            num_in_context_sample=4,
+                            codex_questions_path=CODEX_QUESTIONS_PATH,
+                            codex_answers_path=CODEX_ANSWERS_PATH,
+                            codex_predictions_path=CODEX_PREDICTIONS_PATH,
+                            codex_prediction_labels_path=CODEX_PREDICTION_LABELS_PATH,
+                            base_path='',
+                            ):
+        """Mix four data formats into different batches 
+        """
+        self.questions = pickle.load(open(base_path + codex_questions_path, 'rb'))
+        self.answers = pickle.load(open(base_path + codex_answers_path, 'rb'))
+        self.codex_predictions = pickle.load(open(base_path + codex_predictions_path, 'rb'))
+        self.prediction_labels = pickle.load(open(base_path + codex_prediction_labels_path, 'rb'))
+        self.batch_sizes = {"in_context_chain_of_thought": 10,
+                            "in_context_answer_only": 25,
+                            "zero_shot_chain_of_thought": 15,
+                            "zero_shot_answer_only": 100,
+                            }
 
         # Step 1. Build zero-shot answer-only batches 
-        # Add prefix "Q: " and "A: "
+        zero_shot_answer_only = []
+        for q, a, l in tqdm(zip(self.questions, self.codex_predictions, self.prediction_labels), total=len(self.questions)):
+            for ai, li in zip(a, l):
+                if(li == 1):
+                    question = "Q: " + get_question_or_cot(q) + " A:"
+                    answer = get_answer_only(ai)
+                    if(answer is not None):
+                        case = {'question': question,
+                                'answer': answer,
+                                }
+                        zero_shot_answer_only.append(case)
+                        break
 
-        # Step 2. Build in-context answer-only batches
+        # Step 2. Build zero-shot chain-of-thought batches 
+        zero_shot_chain_of_thought = []
+        for q, a, l in tqdm(zip(self.questions, self.codex_predictions, self.prediction_labels), total=len(self.questions)):
+            for ai, li in zip(a, l):
+                if(li == 1):
+                    question = "Q: " + get_question_or_cot(q) + "\nLet's think step by step"
+                    answer = get_question_or_cot(ai)
+                    case = {'question': question,
+                            'answer': answer,
+                            }
+                    zero_shot_chain_of_thought.append(case)
+
+        # Step 3. Build in-context answer-only batches
         # sample 4 in-context demonstrations from the GSM8K training set
-
-        # Step 3. Build zero-shot chain-of-thought batches 
+        in_context_answer_only = []
+        for q, a, l in tqdm(zip(self.questions, self.codex_predictions, self.prediction_labels), total=len(self.questions)):
+            for ai, li in zip(a, l):
+                if(li == 1):
+                    prompt = sample_in_context_example(self.gsm8k_train, num_in_context_sample, False)
+                    question = "Q: " + get_question_or_cot(q) + "\nA:"
+                    answer = get_answer_only(ai)
+                    if(answer is not None):
+                        case = {'question': prompt + question,
+                                'answer': answer,
+                                }
+                        in_context_answer_only.append(case)
+                        break
 
         # Step 4. Build in-context chain-of-thought batches
-
-        # Step 5. Mix all batches together
-        return 
+        # NOTE: doing this way we almost have the different answers to the same questions in the same batch
+        in_context_chain_of_thought = []
+        for q, a, l in tqdm(zip(self.questions, self.codex_predictions, self.prediction_labels), total=len(self.questions)):
+            for ai, li in zip(a, l):
+                if(li == 1):
+                    prompt = sample_in_context_example(self.gsm8k_train, num_in_context_sample, True)
+                    question = "Q: " + get_question_or_cot(q) + "\nLet's think step by step"
+                    answer = get_question_or_cot(ai)
+                    case = {'question': prompt + question,
+                            'answer': answer,
+                            }
+                    in_context_chain_of_thought.append(case)
+        return zero_shot_answer_only, zero_shot_chain_of_thought, in_context_answer_only, in_context_chain_of_thought

@@ -1,0 +1,30 @@
+defaults:
+  - _self_  
+  - override hydra/hydra_logging: disabled  
+  - override hydra/job_logging: disabled  
+  - batch_sizes: 11b
+  - device_map: 11b
+
+model_version: "0.0.2.1"
+data_formats:
+  # - zero_shot_answer_only
+  # - zero_shot_chain_of_thought
+  - in_context_answer_only
+  - in_context_chain_of_thought
+gpu_id: '0'
+grad_accum_steps: 15
+save_steps: [200,500,1000,3500]
+lr: 0.0005
+num_warmup_steps: 10
+num_epoch: 10
+log_interval: 2
+num_in_context_sample: 4
+save_path: '/mnt/data_10t/flan_t5_distill/checkpoints/'
+base_model: 'google/flan-t5-xxl' # [google/flan-t5-xxl, google/flan-t5-xl], xxl for 11B, xl for 3B, TODO: OPT 66B
+tune_mode: 'match_generation' # match_generation, match_distribution, contrastive
+generation_importance: "uniform" # uniform, emphasize_transition, emphasize_equation
+
+hydra:  
+  output_subdir: null  
+  run:  
+    dir: .

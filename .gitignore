@@ -1,6 +1,7 @@
 .ipynb_checkpoints
 outputs
 .DS_Store
+.vscode
 data
 __pycache__/
 logs

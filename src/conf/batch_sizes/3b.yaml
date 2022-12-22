@@ -1,0 +1,4 @@
+in_context_chain_of_thought: 2
+in_context_answer_only: 10
+zero_shot_chain_of_thought: 8
+zero_shot_answer_only: 20
