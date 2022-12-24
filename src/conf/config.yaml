@@ -11,6 +11,7 @@ data_formats:
   - zero_shot_chain_of_thought
   - in_context_answer_only
   - in_context_chain_of_thought
+  - in_context_chain_of_thought_negative # if add negative data to batch
 gpu_id: '0'
 grad_accum_steps: 15
 save_steps: [50000]
@@ -18,6 +19,7 @@ lr: 0.0005
 num_warmup_steps: 10
 num_epoch: 10
 log_interval: 2
+pos_neg_ratio: 5 # every 5 positive batch, mix in a negative batch 
 num_in_context_sample: 4
 save_path: '/mnt/data_10t/flan_t5_distill/checkpoints/'
 base_model: 'google/flan-t5-xxl' # [google/flan-t5-xxl, google/flan-t5-xl], xxl for 11B, xl for 3B, TODO: OPT 66B

@@ -20,11 +20,14 @@ PERMUTED_IDX_PATH = 'processed_data/permuted_idx.pkl'
 
 CODEX_QUESTIONS_PATH = 'processed_data/codex_questions.pkl'
 CODEX_PREDICTIONS_PATH = 'processed_data/codex_predictions.pkl'
+FLAN_PREDICTIONS_PATH = 'processed_data/flan_predictions.pkl'
+FLAN_PREDICTION_LABELS_PATH = 'processed_data/flan_prediction_labels.pkl'
 
 ZERO_SHOT_ANSWER_ONLY_PATH = 'processed_data/zero_shot_answer_only.pkl'
 ZERO_SHOT_CHAIN_OF_THOUGHT_PATH = 'processed_data/zero_shot_chain_of_thought.pkl'
 IN_CONTEXT_ANSWER_ONLY_PATH = 'processed_data/in_context_answer_only.pkl'
 IN_CONTEXT_CHAIN_OF_THOUGHT_PATH = 'processed_data/in_context_chain_of_thought.pkl'
+IN_CONTEXT_CHAIN_OF_THOUGHT_NEGATIVE_PATH = 'processed_data/in_context_chain_of_thought_negative.pkl'
 
 
 class GSM8KCodexAugmentedDataset(object):
@@ -265,19 +268,21 @@ def sample_in_context_example(gsm8k_train, num_in_context_sample, is_cot):
 class GSM8KCodexAugmentedInContextDataset(object):
 
     def __init__(self, 
-                 batch_sizes,     
-                 data_formats,
+                 args,
                  base_path=''
                  ):
         self.gsm8k_train = load_dataset('gsm8k', 'main')['train']
-        self.batch_sizes = batch_sizes
-        self.data_formats = data_formats
+        self.batch_sizes = args.batch_sizes
+        self.data_formats = args.data_formats
+        self.grad_accum_steps = args.grad_accum_steps
+        self.pos_neg_ratio = args.pos_neg_ratio
 
         # load processed data 
         self.zero_shot_answer_only = pickle.load(open(base_path + ZERO_SHOT_ANSWER_ONLY_PATH, 'rb'))
         self.zero_shot_chain_of_thought = pickle.load(open(base_path + ZERO_SHOT_CHAIN_OF_THOUGHT_PATH, 'rb'))
         self.in_context_answer_only = pickle.load(open(base_path + IN_CONTEXT_ANSWER_ONLY_PATH, 'rb'))
         self.in_context_chain_of_thought = pickle.load(open(base_path + IN_CONTEXT_CHAIN_OF_THOUGHT_PATH, 'rb'))
+        self.in_context_chain_of_thought_negative = pickle.load(open(base_path + IN_CONTEXT_CHAIN_OF_THOUGHT_NEGATIVE_PATH, 'rb'))
         return 
 
     def process_batch(self, tokenizer, batch):
@@ -298,47 +303,76 @@ class GSM8KCodexAugmentedInContextDataset(object):
                  'question_mask': questions['attention_mask'],    
                  'answers': answer_ids,
                  'answer_mask': answers['attention_mask'],
-                 'targets': targets
+                 'targets': targets,
+                 'answer_label': batch[0]['answer_label']
                  }
         return batch
 
     def get_train_batches(self):
-        """Given batch size, build batches for each data format, then mix them together"""
+        """Given batch size, build batches for each data format, then mix them together
 
-        all_batches = []
+        Generation of the same questions are put in the same batch 
+        positive cases and negative cases are put in different batches
+        here the word "batch" means the batch after gradient accumulation, the effective batch 
+        """
+
+        all_batches_positive = []
+        all_batches_negative = []
         if('zero_shot_answer_only' in self.data_formats):
             zero_shot_answer_only_batches = []
             batch_size = self.batch_sizes['zero_shot_answer_only']
             for idx in range(0, len(self.zero_shot_answer_only), batch_size):
                 zero_shot_answer_only_batches.append(self.zero_shot_answer_only[idx : idx + batch_size])
-            all_batches.append(zero_shot_answer_only_batches)
+            all_batches_positive.append(zero_shot_answer_only_batches)
 
         if('zero_shot_chain_of_thought' in self.data_formats):
             zero_shot_chain_of_thought_batches = []
             batch_size = self.batch_sizes['zero_shot_chain_of_thought']
             for idx in range(0, len(self.zero_shot_chain_of_thought), batch_size):
                 zero_shot_chain_of_thought_batches.append(self.zero_shot_chain_of_thought[idx : idx + batch_size])
-            all_batches.extend(zero_shot_chain_of_thought_batches)
+            all_batches_positive.extend(zero_shot_chain_of_thought_batches)
 
         if('in_context_answer_only' in self.data_formats):
             in_context_answer_only_batches = []
             batch_size = self.batch_sizes['in_context_answer_only']
             for idx in range(0, len(self.in_context_answer_only), batch_size):
                 in_context_answer_only_batches.append(self.in_context_answer_only[idx : idx + batch_size])
-            all_batches.extend(in_context_answer_only_batches)
+            all_batches_positive.extend(in_context_answer_only_batches)
         
         if('in_context_chain_of_thought' in self.data_formats):
             in_context_chain_of_thought_batches = []
             batch_size = self.batch_sizes['in_context_chain_of_thought']
             for idx in range(0, len(self.in_context_chain_of_thought), batch_size):
                 in_context_chain_of_thought_batches.append(self.in_context_chain_of_thought[idx : idx + batch_size])
-            all_batches.extend(in_context_chain_of_thought_batches)
+            all_batches_positive.extend(in_context_chain_of_thought_batches)
+
+        if('in_context_chain_of_thought_negative' in self.data_formats):
+            in_context_chain_of_thought_negative_batches = []
+            batch_size = self.batch_sizes['in_context_chain_of_thought_negative']
+            for idx in range(0, len(self.in_context_chain_of_thought_negative), batch_size):
+                in_context_chain_of_thought_negative_batches.append(self.in_context_chain_of_thought_negative[idx : idx + batch_size])
+            all_batches_negative.extend(in_context_chain_of_thought_negative_batches)
 
         # shuffle batches
         np.random.seed(0)
-        np.random.shuffle(all_batches)
+        np.random.shuffle(all_batches_positive)
+        np.random.seed(0)
+        np.random.shuffle(all_batches_negative)
 
         # import ipdb; ipdb.set_trace()
+        if("in_context_chain_of_thought_negative" in self.data_formats):
+            all_batches = []
+            k = 0
+            for i, batch in enumerate(all_batches_positive):
+                i += 1 # fix the index bug
+                all_batches.append(batch)
+                if(i > 0 and i % (self.pos_neg_ratio * self.grad_accum_steps) == 0):
+                    for j in range(self.grad_accum_steps):
+                        all_batches.append(all_batches_negative[k + j])
+                    # import ipdb; ipdb.set_trace()
+                    k += self.grad_accum_steps
+        else: 
+            all_batches = all_batches_positive
         return all_batches
 
     def process_data_format(self, 
@@ -347,6 +381,8 @@ class GSM8KCodexAugmentedInContextDataset(object):
                             codex_answers_path=CODEX_ANSWERS_PATH,
                             codex_predictions_path=CODEX_PREDICTIONS_PATH,
                             codex_prediction_labels_path=CODEX_PREDICTION_LABELS_PATH,
+                            flan_predictions_path=FLAN_PREDICTIONS_PATH,
+                            flan_prediction_labels_path=FLAN_PREDICTION_LABELS_PATH,
                             base_path='',
                             ):
         """Mix four data formats into different batches 
@@ -355,6 +391,8 @@ class GSM8KCodexAugmentedInContextDataset(object):
         self.answers = pickle.load(open(base_path + codex_answers_path, 'rb'))
         self.codex_predictions = pickle.load(open(base_path + codex_predictions_path, 'rb'))
         self.prediction_labels = pickle.load(open(base_path + codex_prediction_labels_path, 'rb'))
+        self.flan_predictions = pickle.load(open(base_path + flan_predictions_path, 'rb'))
+        self.flan_prediction_labels = pickle.load(open(base_path + flan_prediction_labels_path, 'rb'))
         self.batch_sizes = {"in_context_chain_of_thought": 10,
                             "in_context_answer_only": 25,
                             "zero_shot_chain_of_thought": 15,
@@ -371,6 +409,7 @@ class GSM8KCodexAugmentedInContextDataset(object):
                     if(answer is not None):
                         case = {'question': question,
                                 'answer': answer,
+                                'answer_label': 1,
                                 }
                         zero_shot_answer_only.append(case)
                         break
@@ -384,6 +423,7 @@ class GSM8KCodexAugmentedInContextDataset(object):
                     answer = get_question_or_cot(ai)
                     case = {'question': question,
                             'answer': answer,
+                            'answer_label': 1,
                             }
                     zero_shot_chain_of_thought.append(case)
 
@@ -399,6 +439,7 @@ class GSM8KCodexAugmentedInContextDataset(object):
                     if(answer is not None):
                         case = {'question': prompt + question,
                                 'answer': answer,
+                                'answer_label': 1,
                                 }
                         in_context_answer_only.append(case)
                         break
@@ -414,6 +455,27 @@ class GSM8KCodexAugmentedInContextDataset(object):
                     answer = get_question_or_cot(ai)
                     case = {'question': prompt + question,
                             'answer': answer,
+                            'answer_label': 1,
                             }
                     in_context_chain_of_thought.append(case)
-        return zero_shot_answer_only, zero_shot_chain_of_thought, in_context_answer_only, in_context_chain_of_thought
+
+        # Step 5. Build in-context chain-of-thought negative batches
+        in_context_chain_of_thought_negative = []
+        for q, a, l in tqdm(zip(self.questions, self.flan_predictions, self.flan_prediction_labels), total=len(self.questions)):
+            for ai, li in zip(a, l):
+                if(li == 0):
+                    prompt = sample_in_context_example(self.gsm8k_train, num_in_context_sample, True)
+                    question = "Q: " + get_question_or_cot(q) + "\nLet's think step by step"
+                    answer = get_question_or_cot(ai)
+                    case = {'question': prompt + question,
+                            'answer': answer,
+                            'answer_label': 0,
+                            }
+                    in_context_chain_of_thought_negative.append(case)
+
+        return (zero_shot_answer_only, 
+                zero_shot_chain_of_thought, 
+                in_context_answer_only, 
+                in_context_chain_of_thought, 
+                in_context_chain_of_thought_negative
+                )

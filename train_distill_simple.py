@@ -13,7 +13,7 @@ nohup python -u train_distill_simple.py\
     batch_sizes=3b\
     device_map=3b\
     grad_accum_steps=30\
-    log_interval=2\
+    log_interval=100\
     lr=0.0005\
     &> logs/beta_${model_version}.log &
 tail -f logs/beta_${model_version}.log
@@ -50,20 +50,23 @@ def compute_loss_match_dist(logits, teacher_dist, mask):
     loss = (kld * mask).sum() / mask.sum()
     return loss
 
-def compute_loss_nll(lm_logits, targets, mask, device):
+def compute_loss_nll(lm_logits, targets, mask, answer_label, device):
     loss = F.cross_entropy(lm_logits.view(-1, lm_logits.size(-1)), targets.to(device).view(-1), reduction='none')
     loss = (loss * mask.to(device).view(-1)).sum() / mask.sum()
+
+    if(answer_label == 0): loss = -loss # negative sample
     return loss
 
 def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler=None):
     """Training loop"""
     device = model.device
     global_step = 0
-    smoothed_loss = 0.
+    positive_loss, negative_loss = [], [] 
     tprint('Start trainig, %d batches in total' % len(train_batches))
     for e in range(args.num_epoch):
 
         # training epoch 
+        ans_label_cnt = 0
         for i, batch in enumerate(train_batches):
             batch = dataset.process_batch(tokenizer, batch)
 
@@ -79,21 +82,31 @@ def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler=N
             
             # TODO: seperate transition loss and in-step loss to check which part is hard to learn
             # TODO: distribution match
-            loss = compute_loss_nll(lm_logits, batch['targets'], batch['answer_mask'], device)
+            loss = compute_loss_nll(lm_logits, batch['targets'], batch['answer_mask'], batch['answer_label'], device)
 
             # gradient accumulation
-            smoothed_loss += loss.item()
+            if(batch['answer_label'] == 1): positive_loss.append(loss.item())
+            else: negative_loss.append(loss.item())
+            # ans_label_cnt += batch['answer_label']
             loss /= args.grad_accum_steps
             loss.backward()
+
             if ((i + 1) % args.grad_accum_steps == 0) or (i + 1 == len(train_batches)):
+                # print(ans_label_cnt, args.grad_accum_steps)
+                # assert(ans_label_cnt in [args.grad_accum_steps, 0]) # make sure all batches are positive-only or negative-only
+                # ans_label_cnt = 0
+                
                 optimizer.step()
                 optimizer.zero_grad()
                 if(scheduler is not None): scheduler.step() 
                 global_step += 1
-                smoothed_loss = smoothed_loss / args.grad_accum_steps
+                
                 if global_step % args.log_interval == 0:
-                    tprint(f'Epoch: %d, Iter: %d, Global step %d, Lr: %.4g, Loss: %.4f' % (e, i, global_step, scheduler.get_last_lr()[0], smoothed_loss))
-                    smoothed_loss = 0
+                    tprint(f'Epoch: %d, Iter: %d, Global step %d, Lr: %.4g, Positive Loss: %.4f, Negative Loss: %.4f' % 
+                        (e, i, global_step, scheduler.get_last_lr()[0], 
+                        np.average(positive_loss), np.average(negative_loss)))
+                    positive_loss = []
+                    negative_loss = []
                 # import ipdb; ipdb.set_trace()
             
             if(e == 0 and i in args.save_steps):
@@ -124,7 +137,7 @@ def main(args : DictConfig):
     # args = define_argument()
 
     ## data
-    dataset = GSM8KCodexAugmentedInContextDataset(args.batch_sizes, args.data_formats)
+    dataset = GSM8KCodexAugmentedInContextDataset(args)
     train_batches = dataset.get_train_batches()
     # import ipdb; ipdb.set_trace()
 
