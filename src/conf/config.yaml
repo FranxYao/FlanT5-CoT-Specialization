@@ -1,19 +1,19 @@
 defaults:
   - _self_  
-  - override hydra/hydra_logging: disabled  
-  - override hydra/job_logging: disabled  
   - batch_sizes: 11b
   - device_map: 11b
+  - override hydra/hydra_logging: disabled  
+  - override hydra/job_logging: disabled  
 
-model_version: "0.0.2.1"
+model_version: "0.0.2.2"
 data_formats:
-  # - zero_shot_answer_only
-  # - zero_shot_chain_of_thought
+  - zero_shot_answer_only
+  - zero_shot_chain_of_thought
   - in_context_answer_only
   - in_context_chain_of_thought
 gpu_id: '0'
 grad_accum_steps: 15
-save_steps: [200,500,1000,3500]
+save_steps: [50000]
 lr: 0.0005
 num_warmup_steps: 10
 num_epoch: 10

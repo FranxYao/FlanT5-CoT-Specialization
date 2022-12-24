@@ -1,0 +1,18 @@
+defaults:
+  - _self_
+  - device_map: 11b_inference
+  - override hydra/hydra_logging: disabled  
+  - override hydra/job_logging: disabled  
+
+base_model: google/flan-t5-xxl
+model_size: 3b
+gpu_id: "0"
+batch_size: 40
+prompt_path: lib_prompt/prompt_simple_4_cases.txt
+output_path: /mnt/data_10t/flan_t5_distill/outputs/
+test_data: gsm8k_dev # gsm8k_dev, gsm8k_test, multiarith_test
+
+hydra:  
+  output_subdir: null  
+  run:  
+    dir: .

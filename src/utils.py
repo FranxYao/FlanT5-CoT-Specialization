@@ -328,16 +328,27 @@ def parse_flan_t5_outputs(lines):
     return questions, answers, ans_pred, per_step_prob_
 
 
+# def test_answer(pred_str, ans_str):
+#     pattern = '\d*\.?\d+'
+#     pred = re.findall(pattern, pred_str)
+#     if(len(pred) >= 1):
+#         pred = pred[-1]
+#         gold = re.findall(pattern, ans_str)
+#         gold = gold[-1]
+#         return pred == gold
+#     else: return False
+
+
 def test_answer(pred_str, ans_str):
+    """Find the last number as the predicted answer"""
     pattern = '\d*\.?\d+'
     pred = re.findall(pattern, pred_str)
     if(len(pred) >= 1):
-        pred = pred[-1]
+        pred = float(pred[-1])
         gold = re.findall(pattern, ans_str)
-        gold = gold[-1]
+        gold = float(gold[-1])
         return pred == gold
     else: return False
-
 
 def test_acc(ans_pred, answers):
     acc = 0
@@ -379,6 +390,88 @@ def majority_vote_acc(ans_pred, answers):
         ans_labels.append(labels)
     print('total %d, pred %d, acc %.4f' % (len(ans_pred), acc, acc / len(ans_pred)))
     return acc, ans_labels
+
+
+# def parse_pred_ans_multiarith(filename, stop_at=-1):
+#     with open(filename) as fd: lines = fd.readlines()
+#     am, a = None, None
+#     num_q, acc = 0, 0
+#     current_mode = 'none'
+#     questions = []
+#     ans_pred = []
+#     ans_gold = []
+#     for l in lines:
+#         if(l.startswith('Q: ')):
+#             if(am is not None and a is not None):
+#                 questions.append(q)
+#                 ans_pred.append(am)
+#                 ans_gold.append(a)
+#                 if(test_answer(am, a)):
+#                     acc += 1
+#             current_mode = 'q'
+#             q = l
+#             num_q += 1
+#             if(num_q == stop_at): break
+#         elif(l.startswith('A_model:')):
+#             current_mode = 'am'
+#             am = l
+#         elif(l.startswith('A:')):
+#             current_mode = 'a'
+#             a = l
+#         else:
+#             if(current_mode == 'q'): q += l
+#             elif(current_mode == 'am'): am += l
+#             elif(current_mode == 'a'): a += l
+#             else:
+#                 raise ValueError(current_mode)
+                
+#     questions.append(q)
+#     ans_pred.append(am)
+#     ans_gold.append(a)
+#     if(test_answer(am, a)):
+#         acc += 1
+#     print('num_q %d correct %d ratio %.4f' % (num_q, acc, float(acc / num_q)))
+#     return questions, ans_pred, ans_gold
+
+def parse_pred_ans(filename):
+    with open(filename) as fd: lines = fd.readlines()
+    am, a = None, None
+    num_q, acc = 0, 0
+    current_mode = 'none'
+    questions = []
+    ans_pred = []
+    ans_gold = []
+    for l in lines:
+        if(l.startswith('Q: ')):
+            if(am is not None and a is not None):
+                questions.append(q)
+                ans_pred.append(am)
+                ans_gold.append(a)
+                if(test_answer(am, a)):
+                    acc += 1
+            current_mode = 'q'
+            q = l
+            num_q += 1
+        elif(l.startswith('A_model:')):
+            current_mode = 'am'
+            am = l
+        elif(l.startswith('A:')):
+            current_mode = 'a'
+            a = l
+        else:
+            if(current_mode == 'q'): q += l
+            elif(current_mode == 'am'): am += l
+            elif(current_mode == 'a'): a += l
+            else:
+                raise ValueError(current_mode)
+                
+    questions.append(q)
+    ans_pred.append(am)
+    ans_gold.append(a)
+    if(test_answer(am, a)):
+        acc += 1
+    print('num_q %d correct %d ratio %.4f' % (num_q, acc, float(acc / num_q)))
+    return questions, ans_pred, ans_gold
 
 
 def tprint(str):

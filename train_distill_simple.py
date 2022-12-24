@@ -4,25 +4,19 @@ This script is used for verifying that distillation from Codex can help FlanT5 i
 
 After the verification, we will transfer the code to huggingface trainer
 
-nohup python -u train_distill_simple.py\
-    gpu_id=\'0,1,2,3,6,7\'\
-    log_interval=2\
-    save_steps=[100,200,300,500,1000,3500]\
-    lr=0.0005\
-    &> logs/beta_0.0.2.1.log &
-tail -f logs/beta_0.0.2.1.log
 
+model_version=0.0.2.2
 nohup python -u train_distill_simple.py\
-    gpu_id=\'0,1\'\
+    model_version=${model_version}\
+    gpu_id=\'2,3\'\
     base_model=\'google/flan-t5-xl\'\
     batch_sizes=3b\
-    device_map=3b
+    device_map=3b\
     grad_accum_steps=30\
     log_interval=2\
-    save_steps=[100,200,300,500,1000,3500]\
     lr=0.0005\
-    &> logs/beta_0.0.3.0.log &
-tail -f logs/beta_0.0.3.0.log
+    &> logs/beta_${model_version}.log &
+tail -f logs/beta_${model_version}.log
 """
 
 import time 
@@ -66,6 +60,7 @@ def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler=N
     device = model.device
     global_step = 0
     smoothed_loss = 0.
+    tprint('Start trainig, %d batches in total' % len(train_batches))
     for e in range(args.num_epoch):
 
         # training epoch 
@@ -108,8 +103,8 @@ def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler=N
                 # save(model, save_path)
 
         # validation on subset of training data 
-        save_path = args.save_path + args.model_version + '_epoch_%d_end.pt' % e
-        tprint('Epoch %d finished, saving model at %s' % (e, save_path))
+        save_path = args.save_path + args.model_version + '_epoch_%d_end' % e
+        tprint('Model %s Epoch %d finished, saving model at %s' % (args.model_version, e, save_path))
         # save(model, save_path)
         model.save_pretrained(save_path)
 
@@ -119,7 +114,6 @@ def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler=N
 def eval(args, model, dev_dataset):
     return 
 
-# TODO: print configuration before training
 @hydra.main(version_base=None, config_path="src/conf", config_name="config")
 def main(args : DictConfig):
     print(OmegaConf.to_yaml(args))
@@ -132,6 +126,7 @@ def main(args : DictConfig):
     ## data
     dataset = GSM8KCodexAugmentedInContextDataset(args.batch_sizes, args.data_formats)
     train_batches = dataset.get_train_batches()
+    # import ipdb; ipdb.set_trace()
 
     ## model
     tprint('Loading the model ... ')
@@ -157,7 +152,6 @@ def main(args : DictConfig):
     ## training 
     train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler)
 
-    ## Evaluation
     return 
 
 if __name__ == '__main__':
