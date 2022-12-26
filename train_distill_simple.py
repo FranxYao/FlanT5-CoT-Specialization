@@ -3,20 +3,6 @@
 This script is used for verifying that distillation from Codex can help FlanT5 improve performance on GSM8K
 
 After the verification, we will transfer the code to huggingface trainer
-
-
-model_version=0.0.2.2
-nohup python -u train_distill_simple.py\
-    model_version=${model_version}\
-    gpu_id=\'2,3\'\
-    base_model=\'google/flan-t5-xl\'\
-    batch_sizes=3b\
-    device_map=3b\
-    grad_accum_steps=30\
-    log_interval=100\
-    lr=0.0005\
-    &> logs/beta_${model_version}.log &
-tail -f logs/beta_${model_version}.log
 """
 
 import time 
@@ -50,6 +36,16 @@ def compute_loss_match_dist(logits, teacher_dist, mask):
     loss = (kld * mask).sum() / mask.sum()
     return loss
 
+def compute_loss_unlikelihood(lm_logits, targets, mask, answer_label, device):
+    """Unlikelihood loss for wrong reasoning chains, loss originally proposed in 
+    Welleck et. al. 2019, Neural Text Generation with Unlikelihood Training. 
+    """
+    # import ipdb; ipdb.set_trace()
+    loss = -F.cross_entropy(lm_logits.view(-1, lm_logits.size(-1)), targets.to(device).view(-1), reduction='none')
+    loss = - (1 - loss.exp() + 1e-5).log()
+    loss = (loss * mask.to(device).view(-1)).sum() / mask.sum()
+    return loss
+
 def compute_loss_nll(lm_logits, targets, mask, answer_label, device):
     loss = F.cross_entropy(lm_logits.view(-1, lm_logits.size(-1)), targets.to(device).view(-1), reduction='none')
     loss = (loss * mask.to(device).view(-1)).sum() / mask.sum()
@@ -62,7 +58,7 @@ def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler=N
     device = model.device
     global_step = 0
     positive_loss, negative_loss = [], [] 
-    tprint('Start trainig, %d batches in total' % len(train_batches))
+    tprint('Start trainig, %d / %d = %d batches in total' % (len(train_batches), args.grad_accum_steps, len(train_batches) // args.grad_accum_steps))
     for e in range(args.num_epoch):
 
         # training epoch 
@@ -82,11 +78,13 @@ def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler=N
             
             # TODO: seperate transition loss and in-step loss to check which part is hard to learn
             # TODO: distribution match
-            loss = compute_loss_nll(lm_logits, batch['targets'], batch['answer_mask'], batch['answer_label'], device)
-
             # gradient accumulation
-            if(batch['answer_label'] == 1): positive_loss.append(loss.item())
-            else: negative_loss.append(loss.item())
+            if(batch['answer_label'] == 1): 
+                loss = compute_loss_nll(lm_logits, batch['targets'], batch['answer_mask'], batch['answer_label'], device)
+                positive_loss.append(loss.item())
+            else: # negative sample 
+                loss = args.neg_loss_alpha * compute_loss_unlikelihood(lm_logits, batch['targets'], batch['answer_mask'], batch['answer_label'], device)
+                negative_loss.append(loss.item())
             # ans_label_cnt += batch['answer_label']
             loss /= args.grad_accum_steps
             loss.backward()
@@ -109,22 +107,15 @@ def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler=N
                     negative_loss = []
                 # import ipdb; ipdb.set_trace()
             
-            if(e == 0 and i in args.save_steps):
+            if(i > 0 and i % args.save_per_step == 0):
                 save_path = args.save_path + args.model_version + '_epoch_%d_iter_%d' % (e, i)
                 tprint('Saving model at %s' % save_path)
                 model.save_pretrained(save_path)
-                # save(model, save_path)
 
         # validation on subset of training data 
         save_path = args.save_path + args.model_version + '_epoch_%d_end' % e
         tprint('Model %s Epoch %d finished, saving model at %s' % (args.model_version, e, save_path))
-        # save(model, save_path)
         model.save_pretrained(save_path)
-
-        # validation on dev data
-    return 
-
-def eval(args, model, dev_dataset):
     return 
 
 @hydra.main(version_base=None, config_path="src/conf", config_name="config")
@@ -134,21 +125,17 @@ def main(args : DictConfig):
     ## arguments
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
-    # args = define_argument()
 
     ## data
     dataset = GSM8KCodexAugmentedInContextDataset(args)
     train_batches = dataset.get_train_batches()
-    # import ipdb; ipdb.set_trace()
 
     ## model
     tprint('Loading the model ... ')
     start_time = time.time()
     tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-xxl")
 
-    # TODO: check if alpa can help speed up training / or DeepSpeed
-    # TODO: change the base model to be OPT 66B
-    # TODO: add dropout 
+    # TODO: change code using lightning trainer and FairScale/ DeepSpeed
 
     model = T5ForConditionalGeneration.from_pretrained(args.base_model) 
     model.parallelize(args.device_map)
@@ -164,7 +151,6 @@ def main(args : DictConfig):
 
     ## training 
     train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler)
-
     return 
 
 if __name__ == '__main__':

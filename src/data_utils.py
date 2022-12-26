@@ -323,7 +323,7 @@ class GSM8KCodexAugmentedInContextDataset(object):
             batch_size = self.batch_sizes['zero_shot_answer_only']
             for idx in range(0, len(self.zero_shot_answer_only), batch_size):
                 zero_shot_answer_only_batches.append(self.zero_shot_answer_only[idx : idx + batch_size])
-            all_batches_positive.append(zero_shot_answer_only_batches)
+            all_batches_positive.extend(zero_shot_answer_only_batches)
 
         if('zero_shot_chain_of_thought' in self.data_formats):
             zero_shot_chain_of_thought_batches = []

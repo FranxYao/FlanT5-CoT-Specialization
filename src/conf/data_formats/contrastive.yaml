@@ -1,0 +1,5 @@
+- zero_shot_answer_only
+- zero_shot_chain_of_thought
+- in_context_answer_only
+- in_context_chain_of_thought
+- in_context_chain_of_thought_negative # TODO: find ways to improve this
