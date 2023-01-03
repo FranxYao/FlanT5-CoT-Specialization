@@ -63,6 +63,9 @@ def parse_step_prob_codex_prev(p):
 
 def parse_codex_outputs(lines):
     """Parse Codex outputs into question, answer, prediction, and per-step-probs
+
+    NOTE: THIS FUNCTION HAS BUG WHEN ADDING QUESTIONS. LATER THE OUTPUT IS CORRECTED MANUALLY.
+    BE CAREFUL IF WANT TO USE THIS FUNCTION.
     """
     questions = []
     answers = []
@@ -83,7 +86,7 @@ def parse_codex_outputs(lines):
             ans_list = []
             prob_list = []
         elif(l.startswith('Answer: ')):
-            questions.append(q)
+            questions.append(q) # NOTE: BUG HERE 
             a = [l]
             mode = 'a'
         elif(l.startswith('Model output')):
@@ -138,6 +141,7 @@ def parse_codex_outputs(lines):
             p_.append(pi_)
         per_step_prob_.append(p_)
     
+    assert(len(questions) == len(answers) == len(ans_pred) == len(per_step_prob_))
     return questions, answers, ans_pred, per_step_prob_
 
 
@@ -343,12 +347,16 @@ def test_answer(pred_str, ans_str):
     """Find the last number as the predicted answer"""
     pattern = '\d*\.?\d+'
     pred = re.findall(pattern, pred_str)
+    # print(pred_str)
+    # print(ans_str)
     if(len(pred) >= 1):
         pred = float(pred[-1])
         gold = re.findall(pattern, ans_str)
+        if(len(gold) == 0): return -1
         gold = float(gold[-1])
-        return pred == gold
-    else: return False
+        if(pred == gold): return 1
+        else: return 0
+    else: return 0
 
 def test_acc(ans_pred, answers):
     acc = 0
@@ -436,7 +444,7 @@ def majority_vote_acc(ans_pred, answers):
 def parse_pred_ans(filename):
     with open(filename) as fd: lines = fd.readlines()
     am, a = None, None
-    num_q, acc = 0, 0
+    num_q, acc, skipped = 0, 0, 0
     current_mode = 'none'
     questions = []
     ans_pred = []
@@ -447,8 +455,11 @@ def parse_pred_ans(filename):
                 questions.append(q)
                 ans_pred.append(am)
                 ans_gold.append(a)
-                if(test_answer(am, a)):
+                test_result = test_answer(am, a)
+                if(test_result == 1):
                     acc += 1
+                elif(test_result == -1):
+                    skipped += 1
             current_mode = 'q'
             q = l
             num_q += 1
@@ -468,9 +479,12 @@ def parse_pred_ans(filename):
     questions.append(q)
     ans_pred.append(am)
     ans_gold.append(a)
-    if(test_answer(am, a)):
+    test_result = test_answer(am, a)
+    if(test_result == 1):
         acc += 1
-    print('num_q %d correct %d ratio %.4f' % (num_q, acc, float(acc / num_q)))
+    elif(test_result == -1):
+        skipped += 1
+    print('num_q %d correct %d ratio %.4f skipped %d' % (num_q, acc, float(acc / num_q), skipped))
     return questions, ans_pred, ans_gold
 
 

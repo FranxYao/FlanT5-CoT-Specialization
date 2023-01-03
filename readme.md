@@ -19,7 +19,7 @@ Distillation
 
 Train
 ```bash 
-model_version=0.0.2.2.1
+model_version=0.0.2.2.1 ## BUGGY THIS ONE
 nohup python -u train_distill_simple.py\
     model_version=${model_version}\
     gpu_id=\'2,3\'\
@@ -32,7 +32,20 @@ nohup python -u train_distill_simple.py\
     &> logs/beta_${model_version}.log &
 tail -f logs/beta_${model_version}.log
 
-model_version=0.0.2.4.1
+model_version=0.0.2.2.2 # match distribution + same question in batch
+nohup python -u train_distill_simple.py\
+    model_version=${model_version}\
+    gpu_id=\'0,1\'\
+    base_model=\'google/flan-t5-xl\'\
+    batch_sizes=3b\
+    device_map=3b\
+    grad_accum_steps=30\
+    log_interval=2\
+    lr=0.0005\
+    &> logs/beta_${model_version}.log &
+tail -f logs/beta_${model_version}.log
+
+model_version=0.0.2.4.1 # contrastive loss, not good 
 nohup python -u train_distill_simple.py\
     model_version=${model_version}\
     gpu_id=\'6,7\'\
@@ -45,13 +58,119 @@ nohup python -u train_distill_simple.py\
     lr=0.0005\
     &> logs/beta_${model_version}.log &
 tail -f logs/beta_${model_version}.log
+
+model_version=0.0.2.3 # match sample + same question in batch
+nohup python -u train_distill_simple.py\
+    model_version=${model_version}\
+    gpu_id=\'2,3\'\
+    base_model=\'google/flan-t5-xl\'\
+    batch_sizes=3b\
+    device_map=3b\
+    grad_accum_steps=30\
+    log_interval=2\
+    lr=0.0005\
+    loss_type=match_distribution\
+    &> logs/beta_${model_version}.log &
+tail -f logs/beta_${model_version}.log
+
+model_version=0.0.2.7 # match sample
+nohup python -u train_distill_simple.py\
+    model_version=${model_version}\
+    gpu_id=\'6,7\'\
+    base_model=\'google/flan-t5-xl\'\
+    batch_sizes=3b\
+    device_map=3b\
+    grad_accum_steps=30\
+    log_interval=2\
+    lr=0.0005\
+    batch_mix_mode=fully_random\
+    &> logs/beta_${model_version}.log &
+tail -f logs/beta_${model_version}.log
+
+model_version=0.0.2.8 # match distribution
+nohup python -u train_distill_simple.py\
+    model_version=${model_version}\
+    gpu_id=\'4,5\'\
+    base_model=\'google/flan-t5-xl\'\
+    batch_sizes=3b\
+    device_map=3b\
+    grad_accum_steps=30\
+    log_interval=2\
+    lr=0.0005\
+    loss_type=match_distribution\
+    batch_mix_mode=fully_random\
+    &> logs/beta_${model_version}.log &
+tail -f logs/beta_${model_version}.log
+
+model_version=0.0.2.6 # only use in-context training instances
+nohup python -u train_distill_simple.py\
+    model_version=${model_version}\
+    gpu_id=\'0,1\'\
+    base_model=\'google/flan-t5-xl\'\
+    batch_sizes=3b\
+    device_map=3b\
+    grad_accum_steps=30\
+    log_interval=2\
+    lr=0.0005\
+    data_formats=in_context\
+    loss_type=match_sample\
+    batch_mix_mode=fully_random\
+    &> logs/beta_${model_version}.log &
+tail -f logs/beta_${model_version}.log
+
+model_version=0.0.2.9 # only use zero-shot training instances
+nohup python -u train_distill_simple.py\
+    model_version=${model_version}\
+    gpu_id=\'2,3\'\
+    base_model=\'google/flan-t5-xl\'\
+    batch_sizes=3b\
+    device_map=3b\
+    grad_accum_steps=30\
+    log_interval=2\
+    lr=0.0005\
+    data_formats=zero_shot\
+    loss_type=match_sample\
+    batch_mix_mode=fully_random\
+    &> logs/beta_${model_version}.log &
+tail -f logs/beta_${model_version}.log
+
+model_version=0.0.3.0 # base model change to T5 3b
+nohup python -u train_distill_simple.py\
+    model_version=${model_version}\
+    gpu_id=\'0,1\'\
+    base_model=\'t5-3b\'\
+    batch_sizes=3b\
+    device_map=3b\
+    grad_accum_steps=30\
+    log_interval=2\
+    lr=0.0005\
+    &> logs/beta_${model_version}.log &
+tail -f logs/beta_${model_version}.log
 ```
 
 Test
 ```bash
 python test_distill.py\
-    base_model=/mnt/data_10t/flan_t5_distill/checkpoints/0.0.2.1_epoch_1_end\
-    test_data=gsm8k_dev\
+    base_model=/mnt/data_10t/flan_t5_distill/checkpoints/0.0.2.8_epoch_0_iter_60000\
+    test_data=gsm8k_test\
     batch_size=80\
+    gpu_id=0
+
+python test_distill.py\
+    base_model=/mnt/data_10t/flan_t5_distill/checkpoints/0.0.2.8_epoch_0_iter_60000\
+    test_data=multiarith_test\
+    batch_size=80\
+    gpu_id=0
+
+python test_distill_multiple.py\
+    model_version=0.0.2.7\
+    test_data=svamp_test\
+    epoch=1\
+    gpu_id=5
+
+python test_distill_multiple.py\
+    model_version=0.0.2.8\
+    test_data=svamp_test\
+    epoch=1\
     gpu_id=7
 ```

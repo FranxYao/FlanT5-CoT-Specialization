@@ -19,21 +19,22 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from torch import nn
 from datasets import load_dataset
-from transformers import T5Tokenizer, T5ForConditionalGeneration, get_cosine_schedule_with_warmup, Adafactor
+from transformers import T5Tokenizer, T5ForConditionalGeneration, get_cosine_schedule_with_warmup
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 from src.utils import tprint, kl_divergence
-from src.data_utils import GSM8KCodexAugmentedDataset, GSM8KCodexAugmentedInContextDataset
+from src.data_utils import GSM8KCodexAugmentedInContextDataset
 from omegaconf import DictConfig, OmegaConf
 
 
-def compute_loss_match_dist(logits, teacher_dist, mask):
+def compute_loss_match_dist(logits, teacher_dist, mask, device):
     """Compute loss for the model
 
     logits: [batch_size, seq_len, vocab_size]
     teacher_dist: [batch_size, seq_len, vocab_size], teacher distribution from Codex
     """
-    kld = kl_divergence(teacher_dist, F.softmax(logits, dim=-1))
-    loss = (kld * mask).sum() / mask.sum()
+    kld = kl_divergence(teacher_dist.to(device), F.softmax(logits, dim=-1))
+    loss = (kld * mask.to(device)).sum() / mask.to(device).sum()
     return loss
 
 def compute_loss_unlikelihood(lm_logits, targets, mask, answer_label, device):
@@ -57,7 +58,7 @@ def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler=N
     """Training loop"""
     device = model.device
     global_step = 0
-    positive_loss, negative_loss = [], [] 
+    positive_loss, negative_loss, total_loss = [], [], []
     tprint('Start trainig, %d / %d = %d batches in total' % (len(train_batches), args.grad_accum_steps, len(train_batches) // args.grad_accum_steps))
     for e in range(args.num_epoch):
 
@@ -78,13 +79,27 @@ def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler=N
             
             # TODO: seperate transition loss and in-step loss to check which part is hard to learn
             # TODO: distribution match
+
             # gradient accumulation
-            if(batch['answer_label'] == 1): 
+            if(args.loss_type == 'match_sample'):
                 loss = compute_loss_nll(lm_logits, batch['targets'], batch['answer_mask'], batch['answer_label'], device)
-                positive_loss.append(loss.item())
-            else: # negative sample 
-                loss = args.neg_loss_alpha * compute_loss_unlikelihood(lm_logits, batch['targets'], batch['answer_mask'], batch['answer_label'], device)
-                negative_loss.append(loss.item())
+                total_loss.append(loss.item())
+            elif(args.loss_type == 'match_distribution'):
+                if('chain_of_thought' in batch['type']):
+                    loss = compute_loss_match_dist(lm_logits, batch['target_dist'], batch['answer_mask'], device)
+                else: 
+                    loss = compute_loss_nll(lm_logits, batch['targets'], batch['answer_mask'], batch['answer_label'], device)
+                total_loss.append(loss.item())
+            else:
+                raise NotImplementedError
+
+            # if(batch['answer_label'] == 1): 
+            #     loss = compute_loss_nll(lm_logits, batch['targets'], batch['answer_mask'], batch['answer_label'], device)
+            #     positive_loss.append(loss.item())
+            # else: # negative sample 
+            #     loss = args.neg_loss_alpha * compute_loss_unlikelihood(lm_logits, batch['targets'], batch['answer_mask'], batch['answer_label'], device)
+            #     negative_loss.append(loss.item())
+
             # ans_label_cnt += batch['answer_label']
             loss /= args.grad_accum_steps
             loss.backward()
@@ -100,11 +115,15 @@ def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler=N
                 global_step += 1
                 
                 if global_step % args.log_interval == 0:
-                    tprint(f'Epoch: %d, Iter: %d, Global step %d, Lr: %.4g, Positive Loss: %.4f, Negative Loss: %.4f' % 
+                    # tprint(f'Epoch: %d, Iter: %d, Global step %d, Lr: %.4g, Positive Loss: %.4f, Negative Loss: %.4f' % 
+                    #     (e, i, global_step, scheduler.get_last_lr()[0], 
+                    #     np.average(positive_loss), np.average(negative_loss)))
+                    tprint(f'Epoch: %d, Iter: %d, Global step %d, Lr: %.4g, Loss: %.4f' % 
                         (e, i, global_step, scheduler.get_last_lr()[0], 
-                        np.average(positive_loss), np.average(negative_loss)))
-                    positive_loss = []
-                    negative_loss = []
+                        np.average(total_loss)))
+                    total_loss = []
+                    # positive_loss = []
+                    # negative_loss = []
                 # import ipdb; ipdb.set_trace()
             
             if(i > 0 and i % args.save_per_step == 0):
@@ -133,11 +152,12 @@ def main(args : DictConfig):
     ## model
     tprint('Loading the model ... ')
     start_time = time.time()
-    tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-xxl")
+    # tokenizer = T5Tokenizer.from_pretrained(args.base_model)
+    tokenizer = AutoTokenizer.from_pretrained(args.base_model)
 
     # TODO: change code using lightning trainer and FairScale/ DeepSpeed
-
-    model = T5ForConditionalGeneration.from_pretrained(args.base_model) 
+    # model = T5ForConditionalGeneration.from_pretrained(args.base_model) 
+    model = AutoModelForSeq2SeqLM.from_pretrained(args.base_model)
     model.parallelize(args.device_map)
 
     tokenizer.decoder_start_token_id = model.config.decoder_start_token_id # special treatment for T5

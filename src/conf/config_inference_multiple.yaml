@@ -1,0 +1,37 @@
+defaults:
+  - _self_
+  - device_map: 11b_inference
+  - override hydra/hydra_logging: disabled  
+  - override hydra/job_logging: disabled  
+model_version: "0.0.2.2.1"
+epoch: "0"
+base_model: /mnt/data_10t/flan_t5_distill/checkpoints/${model_version}_epoch_${epoch}_iter_
+iter:
+- 10000
+- 20000
+- 30000
+- 40000
+- 50000
+- 60000
+- 70000
+- 80000
+- 90000
+- 100000
+- 110000
+- 120000
+- 130000
+model_size: 3b
+gpu_id: "0"
+batch_size:
+  gsm8k: 120
+  multiarith: 120
+  asdiv: 120
+  svamp: 120
+prompt_path: lib_prompt/prompt_simple_4_cases.txt
+output_path: /mnt/data_10t/flan_t5_distill/outputs/
+test_data: gsm8k_dev # gsm8k_dev, gsm8k_test, multiarith_test
+
+hydra:  
+  output_subdir: null  
+  run:  
+    dir: .
