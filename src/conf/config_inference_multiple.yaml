@@ -27,6 +27,7 @@ batch_size:
   multiarith: 120
   asdiv: 120
   svamp: 120
+prompt_mode: cot_4_cases # cot_4_cases, zero_shot
 prompt_path: lib_prompt/prompt_simple_4_cases.txt
 output_path: /mnt/data_10t/flan_t5_distill/outputs/
 test_data: gsm8k_dev # gsm8k_dev, gsm8k_test, multiarith_test

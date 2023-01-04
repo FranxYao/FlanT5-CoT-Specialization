@@ -71,7 +71,7 @@ def load_test_data(test_data):
         raise ValueError('Invalid test data: %s' % test_data)
     return data_
 
-def test_model(dataset, tokenizer, model, prompt, args, model_dir):
+def test_model(dataset, tokenizer, model, base_prompt, args, model_dir):
     # decode the dataset
     tprint('Start decoding ... ')
     i = 0
@@ -94,9 +94,19 @@ def test_model(dataset, tokenizer, model, prompt, args, model_dir):
                 q_batch.append(q)
                 a = dataset[i + k]['answer']
                 a_batch.append(a)
-                
-                prompt_q = prompt + '\nQ: ' + q + '\n'
-                prompt_q += "Let's think step by step\n"
+
+                if(args.prompt_mode == 'zero_shot_cot'):
+                    prompt_q = base_prompt + q + '\n' + "Let's think step by step\n"
+                elif(args.prompt_mode == 'zero_shot'):
+                    prompt_q = base_prompt + q + '\n' + 'A: '
+                elif(args.prompt_mode == 'cot_4_cases'):
+                    prompt_q = base_prompt + q + '\n' + "Let's think step by step\n"
+                elif(args.prompt_mode == 'answer_only_4_cases'):
+                    prompt_q = base_prompt + q + '\n' + "A: "
+                else: 
+                    raise ValueError('Invalid prompt mode: %s' % args.prompt_mode)
+
+                import ipdb; ipdb.set_trace()
                 questions.append(prompt_q)
                 
             inputs = tokenizer(questions, padding=True, return_tensors="pt")
@@ -122,6 +132,13 @@ def main(args : DictConfig):
     dataset = load_test_data(args.test_data)
     tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-xxl")
 
+    if(args.prompt_mode == 'zero_shot_cot'):
+        base_prompt = 'Q: '
+    elif(args.prompt_mode == 'cot_4_cases'):
+        base_prompt = open(args.prompt_path).read() + '\nQ: '
+    else: 
+        raise ValueError('Invalid prompt mode: %s' % args.prompt_mode)
+
     for i in args.iter:
         start_time = time.time()
         model_dir = args.base_model + str(i)
@@ -134,9 +151,7 @@ def main(args : DictConfig):
 
         tprint('Model loaded in %.1f seconds.' % (time.time() - start_time))
 
-        # load the prompt
-        prompt = open(args.prompt_path).read()
-        test_model(dataset, tokenizer, model, prompt, args, model_dir)
+        test_model(dataset, tokenizer, model, base_prompt, args, model_dir)
         del model
     
     return 

@@ -158,7 +158,10 @@ def main(args : DictConfig):
     # TODO: change code using lightning trainer and FairScale/ DeepSpeed
     # model = T5ForConditionalGeneration.from_pretrained(args.base_model) 
     model = AutoModelForSeq2SeqLM.from_pretrained(args.base_model)
-    model.parallelize(args.device_map)
+    if(args.base_model in ['t5-3b', 't5-11b', 'google/flan-t5-xl', 'google/flan-t5-xxl']): # Multi-GPU model parallelism
+        model.parallelize(args.device_map)
+    else: # single A100
+        model.to('cuda')
 
     tokenizer.decoder_start_token_id = model.config.decoder_start_token_id # special treatment for T5
 
