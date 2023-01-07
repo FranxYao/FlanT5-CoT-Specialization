@@ -19,7 +19,7 @@ neg_loss_alpha: 1
 pos_neg_ratio: 5 # every 5 positive batch, mix in a negative batch 
 num_in_context_sample: 4
 save_path: '/mnt/data_10t/flan_t5_distill/checkpoints/'
-base_model: 'google/flan-t5-xxl' # [google/flan-t5-xxl, google/flan-t5-xl], xxl for 11B, xl for 3B, TODO: OPT 66B
+base_model: 'google/flan-t5-xxl' # [google/flan-t5-xxl, google/flan-t5-xl, t5-3b, t5-large], xxl for 11B, xl for 3B, TODO: OPT 66B
 loss_type: match_sample # match_generation, match_distribution, contrastive
 batch_mix_mode: fully_random # same_question, fully_random
 # generation_importance: "uniform" # uniform, emphasize_transition, emphasize_equation

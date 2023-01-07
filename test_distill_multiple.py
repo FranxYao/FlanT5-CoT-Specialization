@@ -79,7 +79,10 @@ def test_model(dataset, tokenizer, model, base_prompt, args, model_dir):
     tprint('Model output to: %s' % output_path)
 
     # TODO: change this to batch version
-    batch_size = args.batch_size[args.test_data.split('_')[0]]
+    if(isinstance(args.batch_size, int)):
+        batch_size = args.batch_size
+    else:
+        batch_size = args.batch_size[args.test_data.split('_')[0]]
     with open(output_path, 'w') as fd:
         tqdm_total = len(dataset) // batch_size
         if(len(dataset) % batch_size != 0): tqdm_total += 1
@@ -102,11 +105,12 @@ def test_model(dataset, tokenizer, model, base_prompt, args, model_dir):
                 elif(args.prompt_mode == 'cot_4_cases'):
                     prompt_q = base_prompt + q + '\n' + "Let's think step by step\n"
                 elif(args.prompt_mode == 'answer_only_4_cases'):
-                    prompt_q = base_prompt + q + '\n' + "A: "
+                    raise ValueError('Invalid prompt mode: %s' % args.prompt_mode)
+                    prompt_q = base_prompt + q + '\n' + "A: " # TODO: remove CoT in this case
                 else: 
                     raise ValueError('Invalid prompt mode: %s' % args.prompt_mode)
 
-                import ipdb; ipdb.set_trace()
+                # import ipdb; ipdb.set_trace()
                 questions.append(prompt_q)
                 
             inputs = tokenizer(questions, padding=True, return_tensors="pt")
@@ -130,7 +134,7 @@ def main(args : DictConfig):
 
     # load the dataset
     dataset = load_test_data(args.test_data)
-    tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-xxl")
+    tokenizer = T5Tokenizer.from_pretrained(args.tokenizer)
 
     if(args.prompt_mode == 'zero_shot_cot'):
         base_prompt = 'Q: '

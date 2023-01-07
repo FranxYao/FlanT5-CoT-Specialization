@@ -147,6 +147,20 @@ nohup python -u train_distill_simple.py\
     &> logs/beta_${model_version}.log &
 tail -f logs/beta_${model_version}.log
 
+model_version=0.0.3.1 # base model change to T5 3b, loss type change to match distribution
+nohup python -u train_distill_simple.py\
+    model_version=${model_version}\
+    gpu_id=\'6,7\'\
+    base_model=\'t5-3b\'\
+    batch_sizes=3b\
+    device_map=3b\
+    loss_type=match_distribution\
+    grad_accum_steps=30\
+    log_interval=2\
+    lr=0.0005\
+    &> logs/beta_${model_version}.log &
+tail -f logs/beta_${model_version}.log
+
 model_version=0.0.3.2 # base model change to T5 780m
 nohup python -u train_distill_simple.py\
     model_version=${model_version}\
@@ -189,14 +203,29 @@ python test_distill.py\
     gpu_id=0
 
 python test_distill_multiple.py\
-    model_version=0.0.2.7\
-    test_data=svamp_test\
-    epoch=1\
+    model_version=0.0.2.6\
+    test_data=multiarith_test\
+    epoch=0\
     gpu_id=5
 
 python test_distill_multiple.py\
-    model_version=0.0.2.8\
-    test_data=svamp_test\
+    model_version=0.0.2.9\
+    test_data=asdiv_test\
+    epoch=5\
+    gpu_id=4
+
+python test_distill_multiple.py\
+    model_version=0.0.2.6\
+    test_data=asdiv_test\
+    prompt_mode=zero_shot_cot\
     epoch=1\
-    gpu_id=7
+    gpu_id=4
+
+python test_distill_multiple.py\
+    model_version=0.0.3.0\
+    batch_size=80\
+    test_data=gsm8k_test\
+    tokenizer=t5-3b\
+    epoch=0\
+    gpu_id=0
 ```
