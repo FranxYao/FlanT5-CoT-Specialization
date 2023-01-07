@@ -1,12 +1,6 @@
 """
 Decode GSM8K training data using the T5 model.
 TODO: adaptive batch size, such that max_len * batch_size = const 
-
-python test_distill.py\
-    base_model=/mnt/data_10t/flan_t5_distill/checkpoints/0.0.2.1_epoch_0_end\
-    test_data=multiarith_test\
-    batch_size=80\
-    gpu_id=7
 """
 
 import time 
@@ -91,13 +85,15 @@ def main(args : DictConfig):
 
     # TODO: change this to batch version
     with open(output_path, 'w') as fd:
-        for i in tqdm(range(0, len(dataset), args.batch_size), 
-                      total=len(dataset) // args.batch_size
-                      ):
+        tqdm_total = len(dataset) // args.batch_size
+        if(len(dataset) % args.batch_size != 0): tqdm_total += 1
+        for i in tqdm(range(0, len(dataset), args.batch_size), total=tqdm_total):
             questions = []
             q_batch = []
             a_batch = []
             for k in range(args.batch_size):
+                if(i + k >= len(dataset)): break
+                
                 q = dataset[i + k]['question']
                 q_batch.append(q)
                 a = dataset[i + k]['answer']

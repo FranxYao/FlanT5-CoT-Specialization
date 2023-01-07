@@ -3,20 +3,6 @@
 This script is used for verifying that distillation from Codex can help FlanT5 improve performance on GSM8K
 
 After the verification, we will transfer the code to huggingface trainer
-
-
-model_version=0.0.2.2
-nohup python -u train_distill_simple.py\
-    model_version=${model_version}\
-    gpu_id=\'2,3\'\
-    base_model=\'google/flan-t5-xl\'\
-    batch_sizes=3b\
-    device_map=3b\
-    grad_accum_steps=30\
-    log_interval=2\
-    lr=0.0005\
-    &> logs/beta_${model_version}.log &
-tail -f logs/beta_${model_version}.log
 """
 
 import time 
@@ -33,37 +19,51 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from torch import nn
 from datasets import load_dataset
-from transformers import T5Tokenizer, T5ForConditionalGeneration, get_cosine_schedule_with_warmup, Adafactor
+from transformers import T5Tokenizer, T5ForConditionalGeneration, get_cosine_schedule_with_warmup
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 from src.utils import tprint, kl_divergence
-from src.data_utils import GSM8KCodexAugmentedDataset, GSM8KCodexAugmentedInContextDataset
+from src.data_utils import GSM8KCodexAugmentedInContextDataset
 from omegaconf import DictConfig, OmegaConf
 
 
-def compute_loss_match_dist(logits, teacher_dist, mask):
+def compute_loss_match_dist(logits, teacher_dist, mask, device):
     """Compute loss for the model
 
     logits: [batch_size, seq_len, vocab_size]
     teacher_dist: [batch_size, seq_len, vocab_size], teacher distribution from Codex
     """
-    kld = kl_divergence(teacher_dist, F.softmax(logits, dim=-1))
-    loss = (kld * mask).sum() / mask.sum()
+    kld = kl_divergence(teacher_dist.to(device), F.softmax(logits, dim=-1))
+    loss = (kld * mask.to(device)).sum() / mask.to(device).sum()
     return loss
 
-def compute_loss_nll(lm_logits, targets, mask, device):
+def compute_loss_unlikelihood(lm_logits, targets, mask, answer_label, device):
+    """Unlikelihood loss for wrong reasoning chains, loss originally proposed in 
+    Welleck et. al. 2019, Neural Text Generation with Unlikelihood Training. 
+    """
+    # import ipdb; ipdb.set_trace()
+    loss = -F.cross_entropy(lm_logits.view(-1, lm_logits.size(-1)), targets.to(device).view(-1), reduction='none')
+    loss = - (1 - loss.exp() + 1e-5).log()
+    loss = (loss * mask.to(device).view(-1)).sum() / mask.sum()
+    return loss
+
+def compute_loss_nll(lm_logits, targets, mask, answer_label, device):
     loss = F.cross_entropy(lm_logits.view(-1, lm_logits.size(-1)), targets.to(device).view(-1), reduction='none')
     loss = (loss * mask.to(device).view(-1)).sum() / mask.sum()
+
+    if(answer_label == 0): loss = -loss # negative sample
     return loss
 
 def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler=None):
     """Training loop"""
     device = model.device
     global_step = 0
-    smoothed_loss = 0.
-    tprint('Start trainig, %d batches in total' % len(train_batches))
+    positive_loss, negative_loss, total_loss = [], [], []
+    tprint('Start trainig, %d / %d = %d batches in total' % (len(train_batches), args.grad_accum_steps, len(train_batches) // args.grad_accum_steps))
     for e in range(args.num_epoch):
 
         # training epoch 
+        ans_label_cnt = 0
         for i, batch in enumerate(train_batches):
             batch = dataset.process_batch(tokenizer, batch)
 
@@ -79,39 +79,62 @@ def train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler=N
             
             # TODO: seperate transition loss and in-step loss to check which part is hard to learn
             # TODO: distribution match
-            loss = compute_loss_nll(lm_logits, batch['targets'], batch['answer_mask'], device)
 
             # gradient accumulation
-            smoothed_loss += loss.item()
+            if(args.loss_type == 'match_sample'):
+                loss = compute_loss_nll(lm_logits, batch['targets'], batch['answer_mask'], batch['answer_label'], device)
+                total_loss.append(loss.item())
+            elif(args.loss_type == 'match_distribution'):
+                if('chain_of_thought' in batch['type']):
+                    loss = compute_loss_match_dist(lm_logits, batch['target_dist'], batch['answer_mask'], device)
+                else: 
+                    loss = compute_loss_nll(lm_logits, batch['targets'], batch['answer_mask'], batch['answer_label'], device)
+                total_loss.append(loss.item())
+            else:
+                raise NotImplementedError
+
+            # if(batch['answer_label'] == 1): 
+            #     loss = compute_loss_nll(lm_logits, batch['targets'], batch['answer_mask'], batch['answer_label'], device)
+            #     positive_loss.append(loss.item())
+            # else: # negative sample 
+            #     loss = args.neg_loss_alpha * compute_loss_unlikelihood(lm_logits, batch['targets'], batch['answer_mask'], batch['answer_label'], device)
+            #     negative_loss.append(loss.item())
+
+            # ans_label_cnt += batch['answer_label']
             loss /= args.grad_accum_steps
             loss.backward()
+
             if ((i + 1) % args.grad_accum_steps == 0) or (i + 1 == len(train_batches)):
+                # print(ans_label_cnt, args.grad_accum_steps)
+                # assert(ans_label_cnt in [args.grad_accum_steps, 0]) # make sure all batches are positive-only or negative-only
+                # ans_label_cnt = 0
+                
                 optimizer.step()
                 optimizer.zero_grad()
                 if(scheduler is not None): scheduler.step() 
                 global_step += 1
-                smoothed_loss = smoothed_loss / args.grad_accum_steps
+                
                 if global_step % args.log_interval == 0:
-                    tprint(f'Epoch: %d, Iter: %d, Global step %d, Lr: %.4g, Loss: %.4f' % (e, i, global_step, scheduler.get_last_lr()[0], smoothed_loss))
-                    smoothed_loss = 0
+                    # tprint(f'Epoch: %d, Iter: %d, Global step %d, Lr: %.4g, Positive Loss: %.4f, Negative Loss: %.4f' % 
+                    #     (e, i, global_step, scheduler.get_last_lr()[0], 
+                    #     np.average(positive_loss), np.average(negative_loss)))
+                    tprint(f'Epoch: %d, Iter: %d, Global step %d, Lr: %.4g, Loss: %.4f' % 
+                        (e, i, global_step, scheduler.get_last_lr()[0], 
+                        np.average(total_loss)))
+                    total_loss = []
+                    # positive_loss = []
+                    # negative_loss = []
                 # import ipdb; ipdb.set_trace()
             
-            if(e == 0 and i in args.save_steps):
+            if(i > 0 and i % args.save_per_step == 0):
                 save_path = args.save_path + args.model_version + '_epoch_%d_iter_%d' % (e, i)
                 tprint('Saving model at %s' % save_path)
                 model.save_pretrained(save_path)
-                # save(model, save_path)
 
         # validation on subset of training data 
         save_path = args.save_path + args.model_version + '_epoch_%d_end' % e
         tprint('Model %s Epoch %d finished, saving model at %s' % (args.model_version, e, save_path))
-        # save(model, save_path)
         model.save_pretrained(save_path)
-
-        # validation on dev data
-    return 
-
-def eval(args, model, dev_dataset):
     return 
 
 @hydra.main(version_base=None, config_path="src/conf", config_name="config")
@@ -121,24 +144,24 @@ def main(args : DictConfig):
     ## arguments
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
-    # args = define_argument()
 
     ## data
-    dataset = GSM8KCodexAugmentedInContextDataset(args.batch_sizes, args.data_formats)
+    dataset = GSM8KCodexAugmentedInContextDataset(args)
     train_batches = dataset.get_train_batches()
-    # import ipdb; ipdb.set_trace()
 
     ## model
     tprint('Loading the model ... ')
     start_time = time.time()
-    tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-xxl")
+    # tokenizer = T5Tokenizer.from_pretrained(args.base_model)
+    tokenizer = AutoTokenizer.from_pretrained(args.base_model)
 
-    # TODO: check if alpa can help speed up training / or DeepSpeed
-    # TODO: change the base model to be OPT 66B
-    # TODO: add dropout 
-
-    model = T5ForConditionalGeneration.from_pretrained(args.base_model) 
-    model.parallelize(args.device_map)
+    # TODO: change code using lightning trainer and FairScale/ DeepSpeed
+    # model = T5ForConditionalGeneration.from_pretrained(args.base_model) 
+    model = AutoModelForSeq2SeqLM.from_pretrained(args.base_model)
+    if(args.base_model in ['t5-3b', 't5-11b', 'google/flan-t5-xl', 'google/flan-t5-xxl']): # Multi-GPU model parallelism
+        model.parallelize(args.device_map)
+    else: # single A100
+        model.to('cuda')
 
     tokenizer.decoder_start_token_id = model.config.decoder_start_token_id # special treatment for T5
 
@@ -151,7 +174,6 @@ def main(args : DictConfig):
 
     ## training 
     train(args, tokenizer, model, dataset, train_batches, optimizer, scheduler)
-
     return 
 
 if __name__ == '__main__':

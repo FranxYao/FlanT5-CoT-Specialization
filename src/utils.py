@@ -63,6 +63,9 @@ def parse_step_prob_codex_prev(p):
 
 def parse_codex_outputs(lines):
     """Parse Codex outputs into question, answer, prediction, and per-step-probs
+
+    NOTE: THIS FUNCTION HAS BUG WHEN ADDING QUESTIONS. LATER THE OUTPUT IS CORRECTED MANUALLY.
+    BE CAREFUL IF WANT TO USE THIS FUNCTION.
     """
     questions = []
     answers = []
@@ -83,7 +86,7 @@ def parse_codex_outputs(lines):
             ans_list = []
             prob_list = []
         elif(l.startswith('Answer: ')):
-            questions.append(q)
+            questions.append(q) # NOTE: BUG HERE 
             a = [l]
             mode = 'a'
         elif(l.startswith('Model output')):
@@ -138,6 +141,7 @@ def parse_codex_outputs(lines):
             p_.append(pi_)
         per_step_prob_.append(p_)
     
+    assert(len(questions) == len(answers) == len(ans_pred) == len(per_step_prob_))
     return questions, answers, ans_pred, per_step_prob_
 
 
@@ -343,12 +347,16 @@ def test_answer(pred_str, ans_str):
     """Find the last number as the predicted answer"""
     pattern = '\d*\.?\d+'
     pred = re.findall(pattern, pred_str)
+    # print(pred_str)
+    # print(ans_str)
     if(len(pred) >= 1):
         pred = float(pred[-1])
         gold = re.findall(pattern, ans_str)
+        if(len(gold) == 0): return -1
         gold = float(gold[-1])
-        return pred == gold
-    else: return False
+        if(pred == gold): return 1
+        else: return 0
+    else: return 0
 
 def test_acc(ans_pred, answers):
     acc = 0
@@ -436,7 +444,7 @@ def majority_vote_acc(ans_pred, answers):
 def parse_pred_ans(filename):
     with open(filename) as fd: lines = fd.readlines()
     am, a = None, None
-    num_q, acc = 0, 0
+    num_q, acc, skipped = 0, 0, 0
     current_mode = 'none'
     questions = []
     ans_pred = []
@@ -447,8 +455,11 @@ def parse_pred_ans(filename):
                 questions.append(q)
                 ans_pred.append(am)
                 ans_gold.append(a)
-                if(test_answer(am, a)):
+                test_result = test_answer(am, a)
+                if(test_result == 1):
                     acc += 1
+                elif(test_result == -1):
+                    skipped += 1
             current_mode = 'q'
             q = l
             num_q += 1
@@ -468,9 +479,12 @@ def parse_pred_ans(filename):
     questions.append(q)
     ans_pred.append(am)
     ans_gold.append(a)
-    if(test_answer(am, a)):
+    test_result = test_answer(am, a)
+    if(test_result == 1):
         acc += 1
-    print('num_q %d correct %d ratio %.4f' % (num_q, acc, float(acc / num_q)))
+    elif(test_result == -1):
+        skipped += 1
+    print('num_q %d correct %d ratio %.4f skipped %d' % (num_q, acc, float(acc / num_q), skipped))
     return questions, ans_pred, ans_gold
 
 
@@ -630,3 +644,48 @@ def get_optimizer(optimizer_name, model):
     """
     # TBC
     return 
+
+def dtw(series_1, series_2, norm_func = np.linalg.norm):
+    """Use dynamic time wrapping to align to tokenizers, modified from:
+    
+    https://github.com/talcs/simpledtw/blob/master/simpledtw.py
+    """
+    matrix = np.zeros((len(series_1) + 1, len(series_2) + 1))
+    matrix[0,:] = np.inf
+    matrix[:,0] = np.inf
+    matrix[0,0] = 0
+    for i, vec1 in enumerate(series_1):
+        for j, vec2 in enumerate(series_2):
+            cost = norm_func(vec1, vec2)
+            matrix[i + 1, j + 1] = cost + min(matrix[i, j + 1], matrix[i + 1, j], matrix[i, j])
+    matrix = matrix[1:,1:]
+    i = matrix.shape[0] - 1
+    j = matrix.shape[1] - 1
+    matches = []
+    mappings_series_1 = [list() for v in range(matrix.shape[0])]
+    mappings_series_2 = [list() for v in range(matrix.shape[1])]
+    while i > 0 or j > 0:
+        matches.append((i, j))
+        mappings_series_1[i].append(j)
+        mappings_series_2[j].append(i)
+        option_diag = matrix[i - 1, j - 1] if i > 0 and j > 0 else np.inf
+        option_up = matrix[i - 1, j] if i > 0 else np.inf
+        option_left = matrix[i, j - 1] if j > 0 else np.inf
+        move = np.argmin([option_diag, option_up, option_left])
+        if move == 0:
+            i -= 1
+            j -= 1
+        elif move == 1:
+            i -= 1
+        else:
+            j -= 1
+    matches.append((0, 0))
+    mappings_series_1[0].append(0)
+    mappings_series_2[0].append(0)
+    matches.reverse()
+    for mp in mappings_series_1:
+        mp.reverse()
+    for mp in mappings_series_2:
+        mp.reverse()
+
+    return matches, matrix[-1, -1], mappings_series_1, mappings_series_2, matrix
