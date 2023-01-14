@@ -485,7 +485,8 @@ def parse_pred_ans(filename):
     elif(test_result == -1):
         skipped += 1
     print('num_q %d correct %d ratio %.4f skipped %d' % (num_q, acc, float(acc / num_q), skipped))
-    return questions, ans_pred, ans_gold
+    acc = float(acc / num_q)
+    return questions, ans_pred, ans_gold, acc
 
 
 def tprint(str):

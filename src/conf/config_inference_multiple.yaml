@@ -1,25 +1,13 @@
 defaults:
   - _self_
   - device_map: 11b_inference
+  - iter: 3b # 3b, 780m
   - override hydra/hydra_logging: disabled  
   - override hydra/job_logging: disabled  
+
 model_version: "0.0.2.2.1"
 epoch: "0"
-base_model: /mnt/data_10t/flan_t5_distill/checkpoints/${model_version}_epoch_${epoch}_iter_
-iter:
-- 10000
-- 20000
-- 30000
-- 40000
-- 50000
-- 60000
-- 70000
-- 80000
-- 90000
-- 100000
-# - 110000
-# - 120000
-# - 130000
+base_model: /mnt/data_10t/flan_t5_distill/checkpoints/${model_version}_epoch_${epoch}_
 model_size: 3b
 gpu_id: "0"
 tokenizer: google/flan-t5-xl

@@ -9,3 +9,4 @@ logs
 *.pkl
 processed_data
 checkpoints/
+BIG-Bench-Hard/

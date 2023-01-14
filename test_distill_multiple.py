@@ -72,13 +72,12 @@ def load_test_data(test_data):
     return data_
 
 def test_model(dataset, tokenizer, model, base_prompt, args, model_dir):
-    # decode the dataset
+    """Test model on math datasets"""
     tprint('Start decoding ... ')
     i = 0
     output_path = args.output_path + args.test_data + '_' + model_dir.split('/')[-1] + '.txt'
     tprint('Model output to: %s' % output_path)
 
-    # TODO: change this to batch version
     if(isinstance(args.batch_size, int)):
         batch_size = args.batch_size
     else:
@@ -124,9 +123,22 @@ def test_model(dataset, tokenizer, model, base_prompt, args, model_dir):
                 ans_ = tokenizer.decode(ans_).replace('<pad>', '').strip()
                 fd.write('Q: %s\nA_model:\n%s\nA:\n%s\n\n' % (q, ans_, a))
 
-    _, _, _ = parse_pred_ans(output_path)
-    return 
+    _, _, _, acc = parse_pred_ans(output_path)
+    return acc
 
+def load_and_test(model_dir, args, dataset, tokenizer, base_prompt):
+    start_time = time.time()
+    tprint('Loading the model from %s' % model_dir)
+    model = T5ForConditionalGeneration.from_pretrained(model_dir)
+    if(args.model_size == '11b'):
+        model.parallelize(args.device_map)
+    else:
+        model.to('cuda:' + str(args.gpu_id))
+
+    tprint('Model loaded in %.1f seconds.' % (time.time() - start_time))
+
+    acc = test_model(dataset, tokenizer, model, base_prompt, args, model_dir)
+    return acc 
 
 @hydra.main(version_base=None, config_path="src/conf", config_name="config_inference_multiple")
 def main(args : DictConfig):
@@ -143,21 +155,17 @@ def main(args : DictConfig):
     else: 
         raise ValueError('Invalid prompt mode: %s' % args.prompt_mode)
 
+    results = []
     for i in args.iter:
-        start_time = time.time()
-        model_dir = args.base_model + str(i)
-        tprint('Loading the model from %s' % model_dir)
-        model = T5ForConditionalGeneration.from_pretrained(model_dir)
-        if(args.model_size == '11b'):
-            model.parallelize(args.device_map)
-        else:
-            model.to('cuda:' + str(args.gpu_id))
+        model_dir = args.base_model + 'iter_' + str(i)
+        acc = load_and_test(model_dir, args, dataset, tokenizer, base_prompt)
+        results.append(acc)
 
-        tprint('Model loaded in %.1f seconds.' % (time.time() - start_time))
-
-        test_model(dataset, tokenizer, model, base_prompt, args, model_dir)
-        del model
-    
+    model_dir = args.base_model + 'end'
+    acc = load_and_test(model_dir, args, dataset, tokenizer, base_prompt)
+    results.append(acc)
+    for acc in results:
+        print('%.4f' % acc)
     return 
 
 if __name__ == '__main__':

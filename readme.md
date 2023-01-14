@@ -221,11 +221,18 @@ python test_distill_multiple.py\
     epoch=1\
     gpu_id=4
 
-python test_distill_multiple.py\
-    model_version=0.0.3.0\
-    batch_size=80\
-    test_data=gsm8k_test\
-    tokenizer=t5-3b\
-    epoch=0\
-    gpu_id=0
+model_version=0.0.3.2
+dataset=svamp_test
+epoch=4
+gpu_id=7
+nohup python test_distill_multiple.py\
+    model_version=${model_version}\
+    test_data=${dataset}\
+    tokenizer=t5-large\
+    batch_size=150\
+    iter=780m\
+    epoch=${epoch}\
+    gpu_id=${gpu_id}\
+    &> logs/beta_${model_version}_${dataset}_e${epoch}_eval.log &
+tail -f logs/beta_${model_version}_${dataset}_e${epoch}_eval.log
 ```
