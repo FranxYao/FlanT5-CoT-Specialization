@@ -111,7 +111,7 @@ def test_model(dataset_name, dataset, tokenizer, model, base_prompt, args, model
         fd.write('\n\n----\nEXAMPLE PROMPT: %s\n\n' % prompt_q)
         fd.write('\n\n----\nEXAMPLE OUTPUT: %s\n\n' % ans_raw)
 
-    tprint('%d questions %d correct, acc %.4f' % (len(dataset), acc, acc / len(dataset)))
+    tprint('%s %d questions %d correct, acc %.4f' % (dataset_name, len(dataset), acc, acc / len(dataset)))
     acc = acc / len(dataset)
     return acc
 
@@ -138,7 +138,7 @@ def load_and_test(model_dir, args, datasets, prompts, tokenizer):
         all_perf.append(acc)
         # tprint('%.4f' % acc)
     acc = np.average(all_perf)
-    tprint('average %.4f' % np.average(all_perf))
+    tprint('All average %.4f' % np.average(all_perf))
     return acc
 
 @hydra.main(version_base=None, config_path="src/conf", config_name="config_inference_bbh")

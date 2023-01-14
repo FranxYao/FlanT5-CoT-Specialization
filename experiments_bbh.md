@@ -49,16 +49,18 @@ nohup python test_bbh.py\
     &> logs/beta_${model_version}_bbh_e${epoch}_${prompt_mode}_eval.log &
 tail -f logs/beta_${model_version}_bbh_e${epoch}_${prompt_mode}_eval.log
 
-model_version=0.0.2.7
+model_version=0.0.3.1
 tokenizer=google/flan-t5-xl
 epoch=0
-gpu_id=5
+prompt_mode=ao
+gpu_id=7
 nohup python test_bbh.py\
     model_version=${model_version}\
     tokenizer=${tokenizer}\
     iter=3b\
+    prompt_mode=${prompt_mode}\
     epoch=${epoch}\
     gpu_id=${gpu_id}\
-    &> logs/beta_${model_version}_bbh_e${epoch}_eval.log &
-tail -f logs/beta_${model_version}_bbh_e${epoch}_eval.log
+    &> logs/beta_${model_version}_bbh_e${epoch}_${prompt_mode}_eval.log &
+tail -f logs/beta_${model_version}_bbh_e${epoch}_${prompt_mode}_eval.log
 ```
