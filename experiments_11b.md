@@ -34,4 +34,15 @@ tail -f logs/beta_${model_version}.log
 
 test
 ```bash
+dataset=gsm8k_test
+base_model=google/flan-t5-xxl
+gpu_id=6,7
+nohup python test_distill.py\
+    base_model=${base_model}\
+    test_data=${dataset}\
+    tokenizer=${base_model}\
+    batch_size=50\
+    gpu_id=${gpu_id}\
+    &> logs/beta_${base_model}_${dataset}_eval.log &
+tail -f logs/beta_${base_model}_${dataset}_eval.log
 ```
