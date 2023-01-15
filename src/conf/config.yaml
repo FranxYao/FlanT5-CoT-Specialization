@@ -1,6 +1,6 @@
 defaults:
   - _self_  
-  - batch_sizes: 11b
+  - batch_size: 11b
   - device_map: 11b
   - data_formats: normal
   - override hydra/hydra_logging: disabled  
@@ -22,6 +22,7 @@ save_path: '/mnt/data_10t/flan_t5_distill/checkpoints/'
 base_model: 'google/flan-t5-xxl' # [google/flan-t5-xxl, google/flan-t5-xl, t5-3b, t5-large], xxl for 11B, xl for 3B, TODO: OPT 66B
 loss_type: match_sample # match_generation, match_distribution, contrastive
 batch_mix_mode: fully_random # same_question, fully_random
+gradient_clip_val: 5.
 # generation_importance: "uniform" # uniform, emphasize_transition, emphasize_equation
 
 hydra:  

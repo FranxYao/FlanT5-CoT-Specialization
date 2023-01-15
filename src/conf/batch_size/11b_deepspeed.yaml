@@ -1,0 +1,4 @@
+in_context_chain_of_thought: 1
+in_context_answer_only: 2
+zero_shot_chain_of_thought: 1
+zero_shot_answer_only: 4

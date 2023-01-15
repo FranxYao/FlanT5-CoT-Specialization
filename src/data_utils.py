@@ -274,7 +274,7 @@ class GSM8KCodexAugmentedInContextDataset(object):
                  vocab_size=32128,
                  ):
         self.gsm8k_train = load_dataset('gsm8k', 'main')['train']
-        self.batch_sizes = args.batch_sizes
+        self.batch_size = args.batch_size
         self.grad_accum_steps = args.grad_accum_steps
         self.data_formats = args.data_formats
         self.grad_accum_steps = args.grad_accum_steps
@@ -287,7 +287,7 @@ class GSM8KCodexAugmentedInContextDataset(object):
         self.zero_shot_chain_of_thought = pickle.load(open(base_path + ZERO_SHOT_CHAIN_OF_THOUGHT_PATH, 'rb'))
         self.in_context_answer_only = pickle.load(open(base_path + IN_CONTEXT_ANSWER_ONLY_PATH, 'rb'))
         self.in_context_chain_of_thought = pickle.load(open(base_path + IN_CONTEXT_CHAIN_OF_THOUGHT_PATH, 'rb'))
-        self.in_context_chain_of_thought_negative = pickle.load(open(base_path + IN_CONTEXT_CHAIN_OF_THOUGHT_NEGATIVE_PATH, 'rb'))
+        # self.in_context_chain_of_thought_negative = pickle.load(open(base_path + IN_CONTEXT_CHAIN_OF_THOUGHT_NEGATIVE_PATH, 'rb'))
         return 
 
     def process_batch(self, tokenizer, batch, debug=0):
@@ -356,7 +356,7 @@ class GSM8KCodexAugmentedInContextDataset(object):
         all_batches_negative = []
         if('zero_shot_answer_only' in self.data_formats):
             zero_shot_answer_only_batches = []
-            batch_size = self.grad_accum_steps * self.batch_sizes['zero_shot_answer_only']
+            batch_size = self.grad_accum_steps * self.batch_size['zero_shot_answer_only']
             for idx in range(0, len(self.zero_shot_answer_only), batch_size):
                 batch = self.zero_shot_answer_only[idx : idx + batch_size]
                 if(len(batch) == batch_size):
@@ -365,7 +365,7 @@ class GSM8KCodexAugmentedInContextDataset(object):
 
         if('zero_shot_chain_of_thought' in self.data_formats):
             zero_shot_chain_of_thought_batches = []
-            batch_size = self.grad_accum_steps * self.batch_sizes['zero_shot_chain_of_thought']
+            batch_size = self.grad_accum_steps * self.batch_size['zero_shot_chain_of_thought']
             for idx in range(0, len(self.zero_shot_chain_of_thought), batch_size):
                 batch = self.zero_shot_chain_of_thought[idx : idx + batch_size]
                 if(len(batch) == batch_size):
@@ -374,7 +374,7 @@ class GSM8KCodexAugmentedInContextDataset(object):
 
         if('in_context_answer_only' in self.data_formats):
             in_context_answer_only_batches = []
-            batch_size = self.grad_accum_steps * self.batch_sizes['in_context_answer_only']
+            batch_size = self.grad_accum_steps * self.batch_size['in_context_answer_only']
             for idx in range(0, len(self.in_context_answer_only), batch_size):
                 batch = self.in_context_answer_only[idx : idx + batch_size]
                 if(len(batch) == batch_size):
@@ -383,7 +383,7 @@ class GSM8KCodexAugmentedInContextDataset(object):
         
         if('in_context_chain_of_thought' in self.data_formats):
             in_context_chain_of_thought_batches = []
-            batch_size = self.grad_accum_steps * self.batch_sizes['in_context_chain_of_thought']
+            batch_size = self.grad_accum_steps * self.batch_size['in_context_chain_of_thought']
             for idx in range(0, len(self.in_context_chain_of_thought), batch_size):
                 batch = self.in_context_chain_of_thought[idx : idx + batch_size]
                 if(len(batch) == batch_size):
@@ -402,7 +402,7 @@ class GSM8KCodexAugmentedInContextDataset(object):
 
         # if('in_context_chain_of_thought_negative' in self.data_formats):
         #     in_context_chain_of_thought_negative_batches = []
-        #     batch_size = self.grad_accum_steps * self.batch_sizes['in_context_chain_of_thought_negative']
+        #     batch_size = self.grad_accum_steps * self.batch_size['in_context_chain_of_thought_negative']
         #     for idx in range(0, len(self.in_context_chain_of_thought_negative), batch_size):
         #         in_context_chain_of_thought_negative_batches.append(self.in_context_chain_of_thought_negative[idx : idx + batch_size])
         #     all_batches_negative.extend(in_context_chain_of_thought_negative_batches)
@@ -472,7 +472,7 @@ class GSM8KCodexAugmentedInContextDataset(object):
         assert(len(self.questions) == len(self.codex_per_step_probs))
         assert(len(self.questions) == len(self.flan_predictions))
         assert(len(self.questions) == len(self.flan_prediction_labels))
-        # self.batch_sizes = {"in_context_chain_of_thought": 10,
+        # self.batch_size = {"in_context_chain_of_thought": 10,
         #                     "in_context_answer_only": 25,
         #                     "zero_shot_chain_of_thought": 15,
         #                     "zero_shot_answer_only": 100,
