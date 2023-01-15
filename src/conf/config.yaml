@@ -1,6 +1,6 @@
 defaults:
   - _self_  
-  - batch_sizes: 11b
+  - batch_size: 11b
   - device_map: 11b
   - data_formats: normal
   - override hydra/hydra_logging: disabled  
