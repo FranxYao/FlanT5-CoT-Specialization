@@ -1,0 +1,48 @@
+Traceback (most recent call last):
+  File "train_distill_lightning.py", line 22, in <module>
+    from deepspeed.ops.adam import FusedAdam
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/deepspeed/__init__.py", line 15, in <module>
+    from . import module_inject
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/deepspeed/module_inject/__init__.py", line 1, in <module>
+    from .replace_module import replace_transformer_layer, revert_transformer_layer, ReplaceWithTensorSlicing, GroupQuantizer
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/deepspeed/module_inject/replace_module.py", line 1172, in <module>
+    from ..pipe import PipelineModule
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/deepspeed/pipe/__init__.py", line 1, in <module>
+    from ..runtime.pipe import PipelineModule, LayerSpec, TiedLayerSpec
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/deepspeed/runtime/pipe/__init__.py", line 1, in <module>
+    from .module import PipelineModule, LayerSpec, TiedLayerSpec
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/deepspeed/runtime/pipe/module.py", line 14, in <module>
+    from ..activation_checkpointing import checkpointing
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/deepspeed/runtime/activation_checkpointing/checkpointing.py", line 25, in <module>
+    from deepspeed.runtime.config import DeepSpeedConfig
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/deepspeed/runtime/config.py", line 35, in <module>
+    from ..elasticity import (
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/deepspeed/elasticity/__init__.py", line 5, in <module>
+    from .elastic_agent import DSElasticAgent
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/deepspeed/elasticity/elastic_agent.py", line 1, in <module>
+    from torch.distributed.elastic.agent.server.local_elastic_agent import LocalElasticAgent
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/torch/distributed/elastic/agent/server/__init__.py", line 31, in <module>
+    from .api import (  # noqa: F401
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/torch/distributed/elastic/agent/server/api.py", line 28, in <module>
+    from torch.distributed.elastic.multiprocessing import (
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/torch/distributed/elastic/multiprocessing/__init__.py", line 69, in <module>
+    from torch.distributed.elastic.multiprocessing.api import (  # noqa: F401
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 25, in <module>
+    from torch.distributed.elastic.multiprocessing.errors import ProcessFailure, record
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 70, in <module>
+    log = get_logger()
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/torch/distributed/elastic/utils/logging.py", line 32, in get_logger
+    return _setup_logger(name or _derive_module_name(depth=2))
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/torch/distributed/elastic/utils/logging.py", line 49, in _derive_module_name
+    stack = inspect.stack()
+  File "/opt/conda/envs/llm/lib/python3.8/inspect.py", line 1526, in stack
+    return getouterframes(sys._getframe(1), context)
+  File "/opt/conda/envs/llm/lib/python3.8/inspect.py", line 1503, in getouterframes
+    frameinfo = (frame,) + getframeinfo(frame, context)
+  File "/opt/conda/envs/llm/lib/python3.8/inspect.py", line 1477, in getframeinfo
+    lines, lnum = findsource(frame)
+  File "/opt/conda/envs/llm/lib/python3.8/inspect.py", line 792, in findsource
+    module = getmodule(object, file)
+  File "/opt/conda/envs/llm/lib/python3.8/inspect.py", line 745, in getmodule
+    if ismodule(module) and hasattr(module, '__file__'):
+KeyboardInterrupt
