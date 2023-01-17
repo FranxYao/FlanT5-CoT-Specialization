@@ -21,49 +21,54 @@ from datasets import load_dataset
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 from omegaconf import DictConfig, OmegaConf
 from src.utils import tprint, parse_pred_ans
+from test_distill_multiple import load_test_data
 
-GSM8K_VALIDATION_INDEX_PATH = 'lib_prompt/validation_index.npy'
-MULTIARITH_PATH = 'data/multiarith/MultiArith.json'
-MULTIARITH_VALIDATION_INDEX_PATH = 'data/multiarith/validation_index.npy'
+# GSM8K_VALIDATION_INDEX_PATH = 'lib_prompt/validation_index.npy'
+# MULTIARITH_PATH = 'data/multiarith/MultiArith.json'
+# MULTIARITH_VALIDATION_INDEX_PATH = 'data/multiarith/validation_index.npy'
 
 
-def load_test_data(test_data):
-    # TODO: add multiarith/ other math datasets
-    if(test_data == 'gsm8k_dev'):
-        gsm8k = load_dataset('gsm8k', 'main')
-        validation_index = np.load(GSM8K_VALIDATION_INDEX_PATH)
-        data = gsm8k['train'].select(validation_index)
-        data_ = []
-        for q, a in zip(data['question'], data['answer']): 
-            data_.append({'question': q, 'answer': a})
-    elif(test_data == 'gsm8k_test'):
-        gsm8k = load_dataset('gsm8k', 'main')
-        data = gsm8k['test']
-        data_ = []
-        for q, a in zip(data['question'], data['answer']): 
-            data_.append({'question': q, 'answer': a})
-    elif(test_data == 'multiarith_test'):
-        dataset = json.load(open(MULTIARITH_PATH))
-        dev_ind = np.load(MULTIARITH_VALIDATION_INDEX_PATH)
-        # dev_data = [dataset[i] for i in dev_ind]
-        test_data = [d for i, d in enumerate(dataset) if i not in dev_ind]
-        data_ = []
-        for d in test_data:
-            data_.append({'question': d['sQuestion'][1:-1], 'answer': d['lSolutions']})
-    else:
-        raise ValueError('Invalid test data: %s' % test_data)
-    return data_
+# def load_test_data(test_data):
+#     # TODO: add multiarith/ other math datasets
+#     if(test_data == 'gsm8k_dev'):
+#         gsm8k = load_dataset('gsm8k', 'main')
+#         validation_index = np.load(GSM8K_VALIDATION_INDEX_PATH)
+#         data = gsm8k['train'].select(validation_index)
+#         data_ = []
+#         for q, a in zip(data['question'], data['answer']): 
+#             data_.append({'question': q, 'answer': a})
+#     elif(test_data == 'gsm8k_test'):
+#         gsm8k = load_dataset('gsm8k', 'main')
+#         data = gsm8k['test']
+#         data_ = []
+#         for q, a in zip(data['question'], data['answer']): 
+#             data_.append({'question': q, 'answer': a})
+#     elif(test_data == 'multiarith_test'):
+#         dataset = json.load(open(MULTIARITH_PATH))
+#         dev_ind = np.load(MULTIARITH_VALIDATION_INDEX_PATH)
+#         # dev_data = [dataset[i] for i in dev_ind]
+#         test_data = [d for i, d in enumerate(dataset) if i not in dev_ind]
+#         data_ = []
+#         for d in test_data:
+#             data_.append({'question': d['sQuestion'][1:-1], 'answer': d['lSolutions']})
+#     else:
+#         raise ValueError('Invalid test data: %s' % test_data)
+#     return data_
 
 
 @hydra.main(version_base=None, config_path="src/conf", config_name="config_inference")
 def main(args : DictConfig):
     print(OmegaConf.to_yaml(args))
+    if(args.batch_size_fixed != -1): args.batch_size = args.batch_size_fixed
+
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
 
     # load the dataset
     dataset = load_test_data(args.test_data)
 
     # load the model
-    tprint('Loading the model ... ')
+    tprint('Loading the model from %s' % args.base_model)
     start_time = time.time()
     tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-xxl")
     model = T5ForConditionalGeneration.from_pretrained(args.base_model)
@@ -114,7 +119,7 @@ def main(args : DictConfig):
                 ans_ = tokenizer.decode(ans_).replace('<pad>', '').strip()
                 fd.write('Q: %s\nA_model:\n%s\nA:\n%s\n\n' % (q, ans_, a))
 
-    _, _, _ = parse_pred_ans(output_path)
+    _, _, _, _ = parse_pred_ans(output_path)
     return 
 
 if __name__ == '__main__':

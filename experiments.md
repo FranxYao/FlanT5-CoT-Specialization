@@ -183,6 +183,16 @@ python test_distill.py\
     batch_size=80\
     gpu_id=0
 
+output_path=/mnt/data_20t/flan_t5_distill/outputs/
+batch_size_fixed=80
+dataset=svamp_test
+python test_distill.py\
+    base_model=google/flan-t5-large\
+    output_path=${output_path}\
+    batch_size_fixed=${batch_size_fixed}\
+    test_data=${dataset}\
+    gpu_id=3
+
 python test_distill_multiple.py\
     model_version=0.0.2.6\
     test_data=multiarith_test\

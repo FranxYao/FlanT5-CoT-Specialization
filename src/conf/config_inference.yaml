@@ -7,6 +7,7 @@ defaults:
 base_model: google/flan-t5-xxl
 model_size: 3b
 gpu_id: "0"
+batch_size_fixed: -1
 batch_size: 40
 prompt_path: lib_prompt/prompt_simple_4_cases.txt
 output_path: /mnt/data_10t/flan_t5_distill/outputs/
