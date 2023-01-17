@@ -34,15 +34,21 @@ tail -f logs/beta_${model_version}.log
 
 test
 ```bash
-dataset=gsm8k_test
+model_version=0.1.0.0
 base_model=google/flan-t5-xxl
-gpu_id=6,7
-nohup python test_distill.py\
-    base_model=${base_model}\
+dataset=gsm8k_test
+epoch="0"
+gpu_id=\'6,7\'
+nohup python test_distill_multiple.py\
+    model_version=${model_version}\
     test_data=${dataset}\
     tokenizer=${base_model}\
-    batch_size=50\
+    iter=780m\
+    model_size=11b\
+    batch_size=math_inf_small\
+    epoch=${epoch}\
     gpu_id=${gpu_id}\
-    &> logs/beta_${base_model}_${dataset}_eval.log &
-tail -f logs/beta_${base_model}_${dataset}_eval.log
+    &> logs/beta_${model_version}_${dataset}_e${epoch}_eval.log &
+tail -f logs/beta_${model_version}_${dataset}_e${epoch}_eval.log
+
 ```

@@ -183,6 +183,12 @@ python test_distill.py\
     batch_size=80\
     gpu_id=0
 
+python test_distill.py\
+    base_model=google/flan-t5-large\
+    test_data=gsm8k_test\
+    batch_size=80\
+    gpu_id=0
+
 python test_distill_multiple.py\
     model_version=0.0.2.6\
     test_data=multiarith_test\
