@@ -36,7 +36,7 @@ tail -f logs/beta_${model_version}.log
 
 model_version=0.1.3.0 # base model change to FlanT5 11B
 loss_type=match_distribution
-save_path=/mnt/data/flan_t5_distill/checkpoints/
+save_path=/mnt/data_20t/flan_t5_distill/checkpoints/
 grad_accum_steps=20
 nohup python -u train_distill_simple.py\
     model_version=${model_version}\
@@ -95,6 +95,33 @@ python test_distill.py\
     output_path=${output_path}\
     batch_size_fixed=${batch_size_fixed}\
     test_data=${dataset}\
+    model_size=11b\
+    gpu_id=${gpu_id}
+
+output_path=/mnt/data_10t/flan_t5_distill/outputs/
+base_model=google/flan-t5-xxl
+batch_size_fixed=40
+dataset=asdiv_test
+gpu_id=\'0,1,2,3\'
+python test_distill.py\
+    base_model=${base_model}\
+    output_path=${output_path}\
+    batch_size_fixed=${batch_size_fixed}\
+    test_data=${dataset}\
+    model_size=11b\
+    gpu_id=${gpu_id}
+
+output_path=/mnt/data_10t/flan_t5_distill/outputs/
+base_model=google/flan-t5-xxl
+batch_size_fixed=20
+dataset=svamp_test
+gpu_id=\'4,5,6\'
+python test_distill.py\
+    base_model=${base_model}\
+    output_path=${output_path}\
+    batch_size_fixed=${batch_size_fixed}\
+    test_data=${dataset}\
+    device_map=11b_3cards_inf\
     model_size=11b\
     gpu_id=${gpu_id}
 
