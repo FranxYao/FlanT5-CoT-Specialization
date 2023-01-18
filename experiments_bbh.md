@@ -36,9 +36,9 @@ tail -f logs/beta_${model_version}_bbh_e${epoch}_eval.log
 
 model_version=0.0.4.0
 tokenizer=google/flan-t5-large
-epoch=0
-prompt_mode=ao
-gpu_id=7
+epoch=2
+prompt_mode=cot
+gpu_id=0
 nohup python test_bbh.py\
     model_version=${model_version}\
     tokenizer=${tokenizer}\
