@@ -121,7 +121,7 @@ def load_and_test(model_dir, args, datasets, prompts, tokenizer):
     model = T5ForConditionalGeneration.from_pretrained(model_dir)
 
     if(args.model_size == '11b'):
-        import ipdb; ipdb.set_trace()
+        # import ipdb; ipdb.set_trace()
         model.parallelize(args.device_map)
     else:
         model.to('cuda:' + str(args.gpu_id))
