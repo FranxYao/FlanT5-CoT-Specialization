@@ -73,17 +73,20 @@ tail -f logs/beta_${model_version}.log
 test
 ```bash
 output_path=/mnt/data_10t/flan_t5_distill/outputs/
-base_model=/mnt/data_10t/flan_t5_distill/checkpoints/0.1.0.0_epoch_0_iter_45000
-batch_size_fixed=40
-dataset=asdiv_test
-gpu_id=\'1,2,3,5\'
-python test_distill.py\
+base_model=/mnt/data_10t/flan_t5_distill/checkpoints/0.1.2.0_epoch_0_iter_2000
+batch_size_fixed=80
+dataset=gsm8k_test
+gpu_id=\'0,1,2,3\'
+nohup python test_distill.py\
     base_model=${base_model}\
     output_path=${output_path}\
     batch_size_fixed=${batch_size_fixed}\
     test_data=${dataset}\
     model_size=11b\
-    gpu_id=${gpu_id}
+    gpu_id=${gpu_id}\
+    &> logs/beta_${base_model##*/}_${dataset}_eval.log & 
+tail -f logs/beta_${base_model##*/}_${dataset}_eval.log
+
 
 output_path=/mnt/data_20t/flan_t5_distill/outputs/
 base_model=/mnt/data_20t/flan_t5_distill/checkpoints/0.1.0.0_epoch_0_iter_54000
@@ -108,6 +111,20 @@ python test_distill.py\
     output_path=${output_path}\
     batch_size_fixed=${batch_size_fixed}\
     test_data=${dataset}\
+    model_size=11b\
+    gpu_id=${gpu_id}
+
+output_path=/mnt/data_10t/flan_t5_distill/outputs/
+base_model=/mnt/data_10t/flan_t5_distill/checkpoints/0.1.0.0_epoch_0_iter_45000
+batch_size_fixed=40
+dataset=svamp_test
+gpu_id=\'4,5,6\'
+python test_distill.py\
+    base_model=${base_model}\
+    output_path=${output_path}\
+    batch_size_fixed=${batch_size_fixed}\
+    test_data=${dataset}\
+    device_map=11b_3cards_inf\
     model_size=11b\
     gpu_id=${gpu_id}
 

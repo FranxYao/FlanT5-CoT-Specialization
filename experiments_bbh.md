@@ -21,6 +21,22 @@ nohup python test_bbh.py\
     &> logs/beta_${base_model:7}_bbh_${prompt_mode}_eval.log &
 tail -f logs/beta_${base_model:7}_bbh_${prompt_mode}_eval.log
 
+gpu_id=\'4,5,6,7\'
+base_model=google/flan-t5-xxl
+prompt_mode=cot
+batch_size=bbh_small
+device_map=11b_inference
+nohup python test_bbh.py\
+    base_model=${base_model}\
+    tokenizer=${base_model}\
+    prompt_mode=${prompt_mode}\
+    gpu_id=${gpu_id}\
+    device_map=${device_map}\
+    batch_size=${batch_size}\
+    model_size=11b\
+    &> logs/beta_${base_model:7}_bbh_${prompt_mode}_eval.log &
+tail -f logs/beta_${base_model:7}_bbh_${prompt_mode}_eval.log
+
 model_version=0.0.3.2
 tokenizer=t5-large
 epoch=0

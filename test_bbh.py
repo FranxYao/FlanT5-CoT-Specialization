@@ -121,6 +121,7 @@ def load_and_test(model_dir, args, datasets, prompts, tokenizer):
     model = T5ForConditionalGeneration.from_pretrained(model_dir)
 
     if(args.model_size == '11b'):
+        import ipdb; ipdb.set_trace()
         model.parallelize(args.device_map)
     else:
         model.to('cuda:' + str(args.gpu_id))
@@ -145,6 +146,9 @@ def load_and_test(model_dir, args, datasets, prompts, tokenizer):
 def main(args : DictConfig):
     tprint(OmegaConf.to_yaml(args))
 
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
+
     tokenizer = T5Tokenizer.from_pretrained(args.tokenizer)
 
     datasets = {}
@@ -154,7 +158,7 @@ def main(args : DictConfig):
         datasets[dataset_name] = load_data(dataset_name)
         prompts[dataset_name] = open(BIGBENCH_PROMPT_PATH + dataset_name + '.txt').read()
 
-    if(args.base_model in ['google/flan-t5-large', 'google/flan-t5-xl' or 'google/flan-t5-xxl']): # test initial checkpoint
+    if(args.base_model in ['google/flan-t5-large', 'google/flan-t5-xl', 'google/flan-t5-xxl']): # test initial checkpoint
         model_dir = args.base_model
         load_and_test(model_dir, args, datasets, prompts, tokenizer)
     else: # test specialized model

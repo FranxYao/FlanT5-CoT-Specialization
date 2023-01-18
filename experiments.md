@@ -167,6 +167,19 @@ nohup python -u train_distill_simple.py\
     lr=0.0005\
     &> logs/beta_${model_version}.log &
 tail -f logs/beta_${model_version}.log
+
+model_version=0.0.5.0 # base model change to FlanT5 780m
+nohup python -u train_distill_simple.py\
+    model_version=${model_version}\
+    gpu_id=\'0\'\
+    base_model=\'google/flan-t5-base\'\
+    batch_size=250m\
+    grad_accum_steps=3\
+    save_per_step=1000\
+    log_interval=2\
+    lr=0.0005\
+    &> logs/beta_${model_version}.log &
+tail -f logs/beta_${model_version}.log
 ```
 
 Test

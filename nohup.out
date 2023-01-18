@@ -1,0 +1,126 @@
+model_version: 0.0.5.0
+gpu_id: '0'
+grad_accum_steps: 15
+save_per_step: 10000
+lr: 0.0005
+num_warmup_steps: 10
+num_epoch: 10
+log_interval: 2
+neg_loss_alpha: 1
+pos_neg_ratio: 5
+num_in_context_sample: 4
+save_path: /mnt/data_10t/flan_t5_distill/checkpoints/
+base_model: google/flan-t5-base
+loss_type: match_sample
+batch_mix_mode: fully_random
+gradient_clip_val: 5.0
+batch_size:
+  in_context_chain_of_thought: 25
+  in_context_answer_only: 35
+  zero_shot_chain_of_thought: 40
+  zero_shot_answer_only: 60
+device_map:
+  0:
+  - 0
+  - 1
+  - 2
+  - 3
+  1:
+  - 4
+  - 5
+  - 6
+  - 7
+  2:
+  - 8
+  - 9
+  - 10
+  - 11
+  3:
+  - 12
+  - 13
+  - 14
+  - 15
+  4:
+  - 16
+  - 17
+  - 18
+  - 19
+  5:
+  - 20
+  - 21
+  - 22
+  - 23
+data_formats:
+- zero_shot_answer_only
+- zero_shot_chain_of_thought
+- in_context_answer_only
+- in_context_chain_of_thought
+
+Traceback (most recent call last):
+  File "train_distill_simple.py", line 180, in <module>
+    main()
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/hydra/main.py", line 90, in decorated_main
+    _run_hydra(
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/hydra/_internal/utils.py", line 394, in _run_hydra
+    _run_app(
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/hydra/_internal/utils.py", line 457, in _run_app
+    run_and_report(
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/hydra/_internal/utils.py", line 219, in run_and_report
+    return func()
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/hydra/_internal/utils.py", line 458, in <lambda>
+    lambda: hydra.run(
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/hydra/_internal/hydra.py", line 119, in run
+    ret = run_job(
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/hydra/core/utils.py", line 186, in run_job
+    ret.return_value = task_function(task_cfg)
+  File "train_distill_simple.py", line 149, in main
+    dataset = GSM8KCodexAugmentedInContextDataset(args)
+  File "/home/yaofu/flan-t5-distill/src/data_utils.py", line 276, in __init__
+    self.gsm8k_train = load_dataset('gsm8k', 'main')['train']
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/datasets/load.py", line 1718, in load_dataset
+    builder_instance = load_dataset_builder(
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/datasets/load.py", line 1514, in load_dataset_builder
+    builder_instance: DatasetBuilder = builder_cls(
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/datasets/builder.py", line 1305, in __init__
+    super().__init__(*args, **kwargs)
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/datasets/builder.py", line 373, in __init__
+    extend_dataset_builder_for_streaming(self)
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/datasets/streaming.py", line 108, in extend_dataset_builder_for_streaming
+    extend_module_for_streaming(builder.__module__, use_auth_token=builder.use_auth_token)
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/datasets/streaming.py", line 95, in extend_module_for_streaming
+    patch_submodule(module, "scipy.io.loadmat", wrap_auth(xsio_loadmat), attrs=["__version__"]).start()
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/datasets/utils/patching.py", line 108, in start
+    self.__enter__()
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/datasets/utils/patching.py", line 57, in __enter__
+    submodule = import_module(".".join(submodules[: i + 1]))
+  File "/opt/conda/envs/llm/lib/python3.8/importlib/__init__.py", line 127, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1014, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 991, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 975, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 671, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 843, in exec_module
+  File "<frozen importlib._bootstrap>", line 219, in _call_with_frames_removed
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/scipy/io/__init__.py", line 98, in <module>
+    from .matlab import loadmat, savemat, whosmat
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/scipy/io/matlab/__init__.py", line 45, in <module>
+    from ._mio import loadmat, savemat, whosmat
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/scipy/io/matlab/_mio.py", line 9, in <module>
+    from ._mio4 import MatFile4Reader, MatFile4Writer
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/scipy/io/matlab/_mio4.py", line 8, in <module>
+    import scipy.sparse
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/scipy/sparse/__init__.py", line 283, in <module>
+    from . import csgraph
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/scipy/sparse/csgraph/__init__.py", line 182, in <module>
+    from ._laplacian import laplacian
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/scipy/sparse/csgraph/_laplacian.py", line 7, in <module>
+    from scipy.sparse.linalg import LinearOperator
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/scipy/sparse/linalg/__init__.py", line 121, in <module>
+    from ._dsolve import *
+  File "/opt/conda/envs/llm/lib/python3.8/site-packages/scipy/sparse/linalg/_dsolve/__init__.py", line 60, in <module>
+    from . import _add_newdocs
+  File "<frozen importlib._bootstrap>", line 991, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 975, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 671, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 839, in exec_module
+KeyboardInterrupt
