@@ -4,6 +4,8 @@ Implementation of Yao Fu, Hao Peng, Litu Ou, Ashish Sabharwal, Tushar Khot. _Spe
 
 Code preview. Data and model checkpoints coming soon. 
 
+The actual training script is pretty simple `train_distill_simple.py`. Most of the efforts go to data engineering, hyperparameter search, and evaluation. See the paper for details. 
+
 TODO:
 * [ ] Add preprocessed data
 * [ ] Add DeepSpeed integration 
