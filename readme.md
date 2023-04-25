@@ -11,7 +11,7 @@ TODO:
 
 Quickstart:
 ```bash
-model_version=0.0.5.0 # base model change to FlanT5 780m
+model_version=0.0.5.0 # base model FlanT5 780m
 nohup python -u train_distill_simple.py\
     model_version=${model_version}\
     gpu_id=\'0\'\
