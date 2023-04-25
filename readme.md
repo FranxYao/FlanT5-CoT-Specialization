@@ -8,6 +8,8 @@ TODO:
 * [ ] Add preprocessed data
 * [ ] Add DeepSpeed integration 
 * [ ] Add requirements.txt -- but generally this repo only requires transformers and pytorch
+* [ ] Code Cleaning
+* [ ] Dynamic Programming for matching different tokenizers
 
 Quickstart:
 ```bash
