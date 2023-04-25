@@ -1,6 +1,6 @@
 # Language Model Emergent Ability Distillation. 
 
-Implementation of Yao Fu, Hao Peng, Litu Ou, Ashish Sabharwal, Tushar Khot. _Specializing Smaller Language Models towards Multi-Step Reasoning_. ICML 2023
+Implementation of Yao Fu, Hao Peng, Litu Ou, Ashish Sabharwal, Tushar Khot. _Specializing Smaller Language Models towards Multi-Step Reasoning_. ICML 2023. [[Arxiv](https://arxiv.org/abs/2301.12726)]
 
 Code preview. Data and model checkpoints coming soon. 
 
