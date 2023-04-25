@@ -1,5 +1,31 @@
 # Language Model Emergent Ability Distillation. 
 
+Implementation of Yao Fu, Hao Peng, Litu Ou, Ashish Sabharwal, Tushar Khot. _Specializing Smaller Language Models towards Multi-Step Reasoning_. ICML 2023
+
+Code preview. Data and model checkpoints coming soon. 
+
+TODO:
+* [ ] Add preprocessed data
+* [ ] Add DeepSpeed integration 
+* [ ] Add requirements.txt -- but generally this repo only requires transformers and pytorch
+
+Quickstart:
+```bash
+model_version=0.0.5.0 # base model change to FlanT5 780m
+nohup python -u train_distill_simple.py\
+    model_version=${model_version}\
+    gpu_id=\'0\'\
+    base_model=\'google/flan-t5-base\'\
+    batch_size=250m\
+    grad_accum_steps=3\
+    save_per_step=1000\
+    log_interval=2\
+    lr=0.0005\
+    &> logs/beta_${model_version}.log &
+tail -f logs/beta_${model_version}.log
+```
+
+
 Notebooks 
 * `flan_t5_gsm8k.ipynb`: run GSM8K on Flan-T5
 * `flan_t5_gsm8k_verifier.ipynb`: run GSM8K on Flan-T5 with verifier
