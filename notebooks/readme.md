@@ -1,5 +1,8 @@
 Notebooks used during developing this project, mostly data processing and visualization. 
 
+Notebooks for inspecting the processed data
+* `inspect_processed_data.ipynb`: an example about how `in-context chain-of-thought` data looks like.
+
 Notebooks for visualization
 * `dev_align_codex_to_flan_t5_dtw.ipynb`: notebook for aligning codex and flan t5 tokenized outputs using dynamic time warping
 * `dev_process_codex_outputs.ipynb`: visualize the output probability of codex
