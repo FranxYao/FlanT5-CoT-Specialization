@@ -1,4 +1,4 @@
-hydra
+hydra-core
 datasets
 transformers
 tqdm
