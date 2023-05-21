@@ -2,19 +2,26 @@
 
 Implementation of Yao Fu, Hao Peng, Litu Ou, Ashish Sabharwal, Tushar Khot. _Specializing Smaller Language Models towards Multi-Step Reasoning_. ICML 2023. [[Arxiv](https://arxiv.org/abs/2301.12726)]
 
-Code preview. Data and model checkpoints coming soon. 
+Download data at [Google Drive](https://drive.google.com/drive/folders/1BOXcUTnEyvQia_ypHcaUnUbLsN4HzqmQ?usp=sharing)
+
+After downloading the data, put it under `processed_data/` folder because all data are processed and stored as `.pkl` files. 
+
+A lot of the engineering efforts in this work is not modeling, but data engineering, mostly about processing the data into the four following formats that is important for imbuing the model with in-context and zero-shot abilities
+* in-context answer-only
+* in-context chain-of-thought
+* zero-shot answer-only
+* zero-shot chain-of-thought
+
+We strongly recommend runing `notebooks/inspect_processed_data.ipynb` to get a sense at what the data looks like. It gives an example about how `in-context chain-of-thought` data looks like.
 
 The actual training script is pretty simple `train_distill_simple.py`. Most of the efforts go to data engineering, hyperparameter search, and evaluation. See the paper for details. 
 
-TODO:
-* [ ] Add preprocessed data
-* [ ] Add DeepSpeed integration 
-* [ ] Add requirements.txt -- but generally this repo only requires transformers and pytorch
-* [ ] Code Cleaning
-* [ ] Dynamic Programming for matching different tokenizers
-
 Quickstart:
 ```bash
+# inspect data 
+# see notebooks/inspect_processed_data.ipynb
+
+# run a small model 
 model_version=0.0.5.0 # base model FlanT5 780m
 nohup python -u train_distill_simple.py\
     model_version=${model_version}\
@@ -30,13 +37,17 @@ tail -f logs/beta_${model_version}.log
 ```
 
 
-Notebooks 
-* `flan_t5_gsm8k.ipynb`: run GSM8K on Flan-T5
-* `flan_t5_gsm8k_verifier.ipynb`: run GSM8K on Flan-T5 with verifier
-* `flan_t5_gsm8k_vis.ipynb`: visualization of decoding probability of Flan-T5
-* `flan_t5_mmlu.ipynb`: run mmlu on Flan-T5
-* `flan_t5_multiarith.ipynb`: run multiarith on Flan-T5
-* `opt_gsm8k.ipynb`: run multiarith on OPT (have not gone through this yet)
+Notebooks for visualization
+* `dev_align_codex_to_flan_t5_dtw.ipynb`: notebook for aligning codex and flan t5 tokenized outputs using dynamic time warping
+* `dev_process_codex_outputs.ipynb`: visualize the output probability of codex
+* `dev_process_flan_t5_outputs.ipynb`: visualize the output probability of codex
+
+Notebooks for prompting FlanT5
+* `flan_t5_3b_asdiv.ipynb`: prompting FlanT5 3B on ASDIV dataset 
+* `flan_t5_3b_gsm8k.ipynb`: prompting FlanT5 3B on GSM8K dataset
+* `flan_t5_3b_multiarith.ipynb`: prompting FlanT5 3B on MultiArith dataset
+* `flan_t5_3b_svamp.ipynb`: prompting FlanT5 3B on SVAMP dataset
+* `flan_t5_11b_GSM8K.ipynb`: prompting FlanT5 11B on GSM8K dataset
 
 Scripts
 * `codex_decode_gsm8k.py`: decode gsm8k training set with codex
@@ -47,3 +58,9 @@ Distillation
 * `train_distill_t5.py`: train the distillation algorithm 
 * `trainer_distill.py`: trainer for emergent ability distillation 
 
+TODO:
+* [x] Add preprocessed data
+* [ ] Add DeepSpeed integration 
+* [x] Add requirements.txt -- but generally this repo only requires transformers and pytorch
+* [ ] Code Cleaning
+* [ ] Example dynamic programming code for matching different tokenizers
